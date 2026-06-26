@@ -1,7 +1,6 @@
 use std::ffi::c_float;
 
-mod cuda;
-use cuda::*;
+use nbody_rs::cuda::*;
 
 fn main() {
     let n = 10;

@@ -1,32 +1,68 @@
-use std::ffi::c_float;
+use bevy::prelude::*;
 
-use nbody_rs::cuda::*;
+#[derive(Resource)]
+struct MyAssetData {
+    circle_mesh: Handle<Mesh>,
+    white_material: Handle<ColorMaterial>,
+}
+
+#[derive(Component)]
+struct BodyId(nbody_rs::nbody::BodyId);
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn(Camera2d);
+
+    commands.insert_resource(MyAssetData {
+        circle_mesh: meshes.add(Circle::new(1.0)),
+        white_material: materials.add(Color::WHITE),
+    });
+
+    commands.insert_resource(nbody_rs::nbody::System::new(
+        nbody_rs::nbody::SystemParams {
+            time_step: 1.0,
+        }));
+}
+
+fn setup_scene(
+    mut commands: Commands,
+    render_data: Res<MyAssetData>,
+    mut nbody: ResMut<nbody_rs::nbody::System>,
+) {
+    let circle = &render_data.circle_mesh;
+    let white = &render_data.white_material;
+
+    for x in -10..10 {
+        for y in -10..10 {
+            let mass = 3.0;
+            let x = x as f32 * 30.0;
+            let y = y as f32 * 30.0;
+
+            let body = nbody_rs::nbody::Body {
+                mass,
+                position: [x, y].into(),
+                velocity: [0.0, 0.0].into(),
+            };
+
+            let id = BodyId(nbody.insert_body(body));
+
+            commands.spawn((
+                id,
+                Mesh2d(circle.to_owned()),
+                MeshMaterial2d(white.to_owned()),
+                Transform::from_xyz(x, y, 0.0)
+                    .with_scale(Vec3::from([mass, mass, 1.0]))
+            ));
+        }
+    }
+}
 
 fn main() {
-    let n = 10;
-
-    let (mut a, mut b, mut c) = (vec![0f32; n], vec![0f32; n], vec![0f32; n]);
-
-    for i in 0..n {
-        a[i] = i as c_float;
-        b[i] = 2.0 * i as c_float;
-    }
-
-    let size = n * size_of::<c_float>();
-
-    let (mut cuda_a, mut cuda_b, mut cuda_c) =
-        (CudaMem::new(size).unwrap(), CudaMem::new(size).unwrap(), CudaMem::new(size).unwrap());
-
-    unsafe {
-        cuda_a.copy_in(&a).unwrap();
-        cuda_b.copy_in(&b).unwrap();
-
-        kernels::add_vector(&cuda_a, &cuda_b, &mut cuda_c, n).unwrap();
-
-        cuda_c.copy_out(&mut c).unwrap();
-    };
-
-    for i in 0..n {
-        println!("{} + {} = {}", a[i], b[i], c[i]);
-    }
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, (setup, setup_scene).chain())
+        .run();
 }

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use nbody_rs::*;
 
 #[derive(Resource)]
 struct MyAssetData {
@@ -7,7 +8,7 @@ struct MyAssetData {
 }
 
 #[derive(Component)]
-struct BodyId(nbody_rs::nbody::BodyId);
+struct BodyId(sim::BodyId);
 
 fn setup(
     mut commands: Commands,
@@ -21,16 +22,19 @@ fn setup(
         white_material: materials.add(Color::WHITE),
     });
 
-    commands.insert_resource(nbody_rs::nbody::System::new(
-        nbody_rs::nbody::SystemParams {
+    commands.insert_resource(sim::Simulator::new(
+        sim::SimulationParams {
             time_step: 1.0,
+            typ: sim::SimulationType::SingleCore,
+            theta: 1.0,
+            grav_constant: 6.67430,
         }));
 }
 
 fn setup_scene(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: ResMut<nbody_rs::nbody::System>,
+    mut nbody: ResMut<sim::Simulator>,
 ) {
     let circle = &render_data.circle_mesh;
     let white = &render_data.white_material;
@@ -41,7 +45,7 @@ fn setup_scene(
             let x = x as f32 * 30.0;
             let y = y as f32 * 30.0;
 
-            let body = nbody_rs::nbody::Body {
+            let body = sim::Body {
                 mass,
                 position: [x, y].into(),
                 velocity: [0.0, 0.0].into(),

@@ -1,3 +1,3 @@
 pub mod cuda;
-pub mod nbody;
+pub mod sim;
 pub mod render;

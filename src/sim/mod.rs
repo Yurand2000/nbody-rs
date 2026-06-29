@@ -45,4 +45,8 @@ impl Simulator {
             SimulationType::CUDA => todo!(),
         }
     }
+
+    pub fn get_body(&self, id: BodyId) -> &Body {
+        &self.bodies[id]
+    }
 }

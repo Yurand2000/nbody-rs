@@ -11,7 +11,7 @@ pub struct Body {
 }
 
 pub struct Simulator {
-    params: SimulationParams,
+    pub params: SimulationParams,
     bodies: Vec<Body>,
 }
 

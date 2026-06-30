@@ -92,7 +92,7 @@ impl Simulator {
         tree: &QuadTree<QuadTreeCell>,
         extra: &ExtraParams
     ) -> impl Iterator<Item = (Vec2, Vec2)> {
-        tree.get_interactions(extra, body.position, params.theta)
+        tree.get_interactions(extra, body.position, params.theta / extra.size.magnitude())
             .flat_map(|(cell, belongs_to_cell)| {
                 let (mut cell_mass, mut cell_position) = (cell.mass, cell.position);
 
@@ -108,7 +108,7 @@ impl Simulator {
                 }
 
                 let diff = cell_position - body.position;
-                if diff.magnitude_squared() <= f32::EPSILON {
+                if diff.magnitude_squared() <= body.mass {
                     return None;
                 }
 
@@ -199,7 +199,7 @@ impl QuadTreeIteratorVisitStack {
         Self { visit_stack }
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn top_mut<'a>(&'a mut self) -> Option<QuadTreeIteratorVisitData<'a>> {
         let stack_size = self.visit_stack.len();
 
@@ -211,12 +211,12 @@ impl QuadTreeIteratorVisitStack {
             })
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn pop(&mut self) {
         self.visit_stack.pop();
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn push(&mut self, position: usize) {
         self.visit_stack.push((position, position + 4));
     }
@@ -244,7 +244,7 @@ impl<'a, T> QuadTreeIterator<'a, T> {
     }
 
     /// Get cell of relative `index` at `depth`.
-    #[inline(never)]
+    #[inline(always)]
     fn cell_at_depth(&self, depth: usize, index: usize) -> &'a T {
         let offset = QuadTreeUtils::layer_start(depth);
         &self.quad_tree.cells[offset + index]
@@ -301,32 +301,32 @@ impl QuadTreeUtils {
     pub const MAX_DEPTH: usize = 10;
 
     /// Number of cells for a tree of the given `depth`.
-    #[inline(never)]
+    #[inline(always)]
     pub fn tree_size(depth: usize) -> usize {
         Self::layer_end(depth)
     }
 
     /// Number of cells at the given `depth`.
-    #[inline(never)]
+    #[inline(always)]
     pub fn layer_size(depth: usize) -> usize {
         1 << (2 * depth)
     }
 
     /// Number of cells per dimension at given `depth`:
     /// `layer_dim(x) * layer_dim(x) == layer_size(x)`
-    #[inline(never)]
+    #[inline(always)]
     pub fn layer_dim(depth: usize) -> usize {
         1 << depth
     }
 
     /// Width of one cell at the given `depth`.
-    #[inline(never)]
+    #[inline(always)]
     pub fn layer_width(depth: usize) -> f32 {
         1.0 / Self::layer_dim(depth) as f32
     }
 
     /// Start offset of the given layer in the whole array.
-    #[inline(never)]
+    #[inline(always)]
     pub fn layer_start(depth: usize) -> usize {
         let mut size = 0;
         let mut tmp = 1;
@@ -339,13 +339,13 @@ impl QuadTreeUtils {
     }
 
     /// End (excluded) offset of the given layer in the whole array.
-    #[inline(never)]
+    #[inline(always)]
     pub fn layer_end(depth: usize) -> usize {
         Self::layer_start(depth + 1)
     }
 
     /// Relative nearest cell to `normalized_pos` at `depth`.
-    #[inline(never)]
+    #[inline(always)]
     pub fn nearest_cell_at_layer(depth: usize, normalized_pos: Vec2) -> usize {
         let mut out = 0;
         let mut layer_width = QuadTreeUtils::layer_width(1);
@@ -362,7 +362,7 @@ impl QuadTreeUtils {
         out
     }
 
-    #[inline(never)]
+    #[inline(always)]
     /// Inverse of `nearest_cell_in_layer`
     pub fn nearest_cell_in_layer(pos: Vec2) -> usize {
         if pos.x <= 1.0 {
@@ -381,7 +381,7 @@ impl QuadTreeUtils {
     }
 
     /// Nearest cell position to relative cell of `index` at `depth`.
-    #[inline(never)]
+    #[inline(always)]
     pub fn position_at_layer(depth: usize, index: usize) -> Vec2 {
         let mut out = Vec2::zeros();
         let mut curr_idx = index;
@@ -395,7 +395,7 @@ impl QuadTreeUtils {
         out
     }
 
-    #[inline(never)]
+    #[inline(always)]
     /// Inverse of `nearest_cell_in_layer`
     pub fn position_in_layer(index: usize) -> Vec2 {
         const OFFSETS: [Vec2; 4] = [
@@ -408,7 +408,7 @@ impl QuadTreeUtils {
         OFFSETS[index]
     }
 
-    #[inline(never)]
+    #[inline(always)]
     pub fn first_position_at_next_layer(index: usize) -> usize {
         index * 4
     }
@@ -437,7 +437,7 @@ impl ExtraParams {
         }
     }
 
-    #[inline(never)]
+    #[inline(always)]
     pub fn normalize(&self, vec: Vec2) -> Vec2 {
         let normalized = (vec - self.offset).component_div(&self.size);
         let normalized = Vec2::new(normalized.x, 1.0 - normalized.y);
@@ -450,18 +450,18 @@ impl ExtraParams {
         normalized
     }
 
-    #[inline(never)]
+    #[inline(always)]
     pub fn invert_normalize(&self, vec: Vec2) -> Vec2 {
         let vec = Vec2::new(vec.x, 1.0 - vec.y);
         vec.component_mul(&self.size) + self.offset
     }
 
-    #[inline(never)]
+    #[inline(always)]
     pub fn invert_normalize_size(&self, vec: Vec2) -> Vec2 {
         vec.component_mul(&self.size)
     }
 
-    #[inline(never)]
+    #[inline(always)]
     pub fn max_depth(&self) -> usize {
         (self.size.x / self.min_distance).log2()
             .max((self.size.y / self.min_distance).log2())

@@ -36,7 +36,7 @@ fn setup(
         sim::SimulationParams {
             time_step: 0.1,
             typ: sim::SimulationType::SingleCore,
-            theta: 0.002,
+            theta: 1.0,
             grav_constant: 6.67430,
         }));
 
@@ -80,13 +80,23 @@ fn setup_scene(
     // new_body(8.0, 100.0, 100.0, 0.0, 0.0);
     // new_body(16.0, 25.0, 25.0, 0.0, 0.0);
 
-    for x in -3..3 {
-        for y in -3..3 {
-            let mass = 3.0;
-            let x = x as f32 * 30.0;
-            let y = y as f32 * 30.0;
+    // for x in -3..3 {
+    //     for y in -3..3 {
+    //         let mass = 3.0;
+    //         let x = x as f32 * 30.0;
+    //         let y = y as f32 * 30.0;
 
-            new_body(mass, x, y, -y / 50., x / 50.);
+    //         new_body(mass, x, y, -y / 50., x / 50.);
+    //     }
+    // }
+
+    for x in -50..50 {
+        for y in -50..50 {
+            let mass = 1.0;
+            let x = x as f32 * 10.0;
+            let y = y as f32 * 10.0;
+
+            new_body(mass, x, y, 0.0, 0.0);
         }
     }
 }
@@ -117,6 +127,35 @@ fn process_inputs(
             Simulate => next_state.set(Debug),
             Debug => next_state.set(Simulate),
         }
+    }
+}
+
+fn process_inputs_simulate(
+    keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
+    mut nbody: ResMut<sim::Simulator>,
+) {
+    if keys.pressed(bevy::input::keyboard::Key::Character("+".into())) &&
+       !keys.pressed(bevy::input::keyboard::Key::Shift)
+    {
+        nbody.params.time_step *= 1.05;
+    }
+
+    if keys.pressed(bevy::input::keyboard::Key::Character("-".into())) &&
+       !keys.pressed(bevy::input::keyboard::Key::Shift)
+    {
+        nbody.params.time_step /= 1.05;
+    }
+
+    if keys.just_pressed(bevy::input::keyboard::Key::Character("+".into())) &&
+       keys.pressed(bevy::input::keyboard::Key::Shift)
+    {
+        nbody.params.theta *= 2.0;
+    }
+
+    if keys.just_pressed(bevy::input::keyboard::Key::Character("-".into())) &&
+       keys.pressed(bevy::input::keyboard::Key::Shift)
+    {
+        nbody.params.theta /= 2.0;
     }
 }
 
@@ -172,11 +211,11 @@ fn process_inputs_debug_quadtree(
 
 fn process_inputs_debug_force_single(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
-    nbody: Res<sim::Simulator>,
     mut debug_data: ResMut<ForceSingleDebugState>,
+    nbody: Res<sim::Simulator>,
     force_single_items: Query<(&mut Visibility, &ForceSingleTag)>,
 ) {
-    if keys.just_pressed(bevy::input::keyboard::Key::ArrowUp) {
+    if keys.pressed(bevy::input::keyboard::Key::ArrowUp) {
         debug_data.curr_body =
             if debug_data.curr_body == nbody.get_bodies().len() - 1 {
                 0
@@ -185,7 +224,7 @@ fn process_inputs_debug_force_single(
             };
     }
 
-    if keys.just_pressed(bevy::input::keyboard::Key::ArrowDown) {
+    if keys.pressed(bevy::input::keyboard::Key::ArrowDown) {
         debug_data.curr_body =
             if debug_data.curr_body == 0 {
                 nbody.get_bodies().len() - 1
@@ -222,7 +261,7 @@ fn draw_quadtree(
     use sim::up_simulation::QuadTreeUtils;
 
     let (size_params, tree) = nbody.get_quadtree();
-    let max_vis_depth = tree.depth.min(5);
+    let max_vis_depth = tree.depth.min(8);
 
     commands.insert_resource(QuadtreeDebugState {
         view_level: 0,
@@ -400,7 +439,7 @@ fn draw_force_single(
 
 fn destroy_force_single(
     mut commands: Commands,
-    quadtree_items: Query<Entity, With<ForceSingleTag>>
+    quadtree_items: Query<Entity, With<ForceSingleTag>>,
 ) {
     for entity in quadtree_items {
         commands.entity(entity).despawn();
@@ -414,6 +453,7 @@ fn main() {
         .add_sub_state::<render::DebugState>()
         .add_systems(Startup, (setup, setup_scene).chain())
         .add_systems(Update, process_inputs)
+        .add_systems(Update, process_inputs_simulate.run_if(in_state(render::SimState::Simulate)))
         .add_systems(Update, process_inputs_debug.run_if(in_state(render::SimState::Debug)))
         .add_systems(Update, process_inputs_debug_quadtree.run_if(in_state(render::DebugState::QuadTree)))
         .add_systems(Update, process_inputs_debug_force_single.run_if(in_state(render::DebugState::ForceSingle)))

@@ -7,3 +7,10 @@ impl Component for crate::sim::Simulator {
     type Mutability = bevy::ecs::component::Mutable;
 }
 impl Resource for crate::sim::Simulator {}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+pub enum SimState {
+    #[default]
+    Simulate,
+    Debug,
+}

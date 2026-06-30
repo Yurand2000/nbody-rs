@@ -5,9 +5,11 @@ use nbody_rs::*;
 struct MyAssetData {
     circle_mesh: Handle<Mesh>,
     square_mesh: Handle<Mesh>,
+    segment_mesh: Handle<Mesh>,
     white_material: Handle<ColorMaterial>,
     red_material: Handle<ColorMaterial>,
     yellow_material: Handle<ColorMaterial>,
+    force_material: Handle<ColorMaterial>,
 }
 
 #[derive(Component)]
@@ -23,16 +25,18 @@ fn setup(
     commands.insert_resource(MyAssetData {
         circle_mesh: meshes.add(Circle::new(1.0)),
         square_mesh: meshes.add(Rectangle::new(1.0, 1.0)),
+        segment_mesh: meshes.add(Segment2d::new(Vec2::ZERO, Vec2::Y)),
         white_material: materials.add(Color::WHITE),
         red_material: materials.add(Color::linear_rgba(1.0, 0.0, 0.0, 0.1)),
         yellow_material: materials.add(Color::linear_rgba(1.0, 1.0, 0.0, 0.1)),
+        force_material: materials.add(Color::linear_rgba(1.0, 0.2, 1.0, 1.0)),
     });
 
     commands.insert_resource(sim::Simulator::new(
         sim::SimulationParams {
-            time_step: 0.01,
+            time_step: 0.1,
             typ: sim::SimulationType::SingleCore,
-            theta: 0.0,
+            theta: 0.002,
             grav_constant: 6.67430,
         }));
 
@@ -55,6 +59,7 @@ fn setup_scene(
         };
 
         let id = BodyId(nbody.insert_body(body));
+        let mass = mass.sqrt();
 
         commands.spawn((
             id,
@@ -65,21 +70,25 @@ fn setup_scene(
         ));
     };
 
-    new_body(5.0, -100.0, 25.0, 0.0, 10.0);
-    new_body(5.0, 100.0, 25.0, 0.0, -10.0);
-    new_body(5.0, -100.0, -100.0, 0.0, 10.0);
-    new_body(5.0, 100.0, 100.0, 0.0, -10.0);
-    new_body(5.0, 25.0, 25.0, 0.0, 0.0);
+    // new_body(1.0, -100.0, 0.0, 0.0, 0.0);
+    // new_body(2.0, 100.0, 0.0, 0.0, 0.0);
+    // new_body(4.0, 0.0, 0.0, 0.0, 0.0);
 
-    // for x in -3..3 {
-    //     for y in -3..3 {
-    //         let mass = 3.0;
-    //         let x = x as f32 * 30.0;
-    //         let y = y as f32 * 30.0;
+    // new_body(1.0, -100.0, 25.0, 0.0, 0.0);
+    // new_body(2.0, 100.0, 25.0, 0.0, 0.0);
+    // new_body(4.0, -100.0, -100.0, 0.0, 0.0);
+    // new_body(8.0, 100.0, 100.0, 0.0, 0.0);
+    // new_body(16.0, 25.0, 25.0, 0.0, 0.0);
 
-    //         new_body(mass, x, y, 0.0, 0.0);
-    //     }
-    // }
+    for x in -3..3 {
+        for y in -3..3 {
+            let mass = 3.0;
+            let x = x as f32 * 30.0;
+            let y = y as f32 * 30.0;
+
+            new_body(mass, x, y, -y / 50., x / 50.);
+        }
+    }
 }
 
 fn update(
@@ -100,34 +109,93 @@ fn process_inputs(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
     state: Res<State<render::SimState>>,
     mut next_state: ResMut<NextState<render::SimState>>,
-    debug_state: Option<ResMut<DebugState>>,
-    quadtree_items: Query<(&mut Visibility, &QuadTreeItem)>,
 ) {
+    use render::SimState::*;
+
     if keys.just_pressed(bevy::input::keyboard::Key::Space) {
         match *state.get() {
-            render::SimState::Simulate =>
-                next_state.set(render::SimState::Debug),
-            render::SimState::Debug =>
-                next_state.set(render::SimState::Simulate),
+            Simulate => next_state.set(Debug),
+            Debug => next_state.set(Simulate),
+        }
+    }
+}
+
+fn process_inputs_debug(
+    keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
+    state: Res<State<render::DebugState>>,
+    mut next_state: ResMut<NextState<render::DebugState>>,
+) {
+    use render::DebugState::*;
+
+    if keys.just_pressed(bevy::input::keyboard::Key::ArrowLeft) {
+        match *state.get() {
+            QuadTree => next_state.set(Forces),
+            Forces => next_state.set(ForceSingle),
+            ForceSingle => next_state.set(QuadTree),
         }
     }
 
-    let Some(mut debug_state) = debug_state else { return; };
+    if keys.just_pressed(bevy::input::keyboard::Key::ArrowRight) {
+        match *state.get() {
+            QuadTree => next_state.set(ForceSingle),
+            Forces => next_state.set(QuadTree),
+            ForceSingle => next_state.set(Forces),
+        }
+    }
+}
 
+fn process_inputs_debug_quadtree(
+    keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
+    mut debug_data: ResMut<QuadtreeDebugState>,
+    quadtree_items: Query<(&mut Visibility, &QuadTreeItem)>,
+) {
     if keys.just_pressed(bevy::input::keyboard::Key::ArrowUp) {
-        if debug_state.view_level < debug_state.max_level {
-            debug_state.view_level += 1;
+        if debug_data.view_level < debug_data.max_level {
+            debug_data.view_level += 1;
         }
     }
 
     if keys.just_pressed(bevy::input::keyboard::Key::ArrowDown) {
-        if debug_state.view_level > 0 {
-            debug_state.view_level -= 1;
+        if debug_data.view_level > 0 {
+            debug_data.view_level -= 1;
         }
     }
 
     for (mut vis, item) in quadtree_items {
-        if item.level == debug_state.view_level {
+        if item.level == debug_data.view_level {
+            *vis = Visibility::Visible;
+        } else {
+            *vis = Visibility::Hidden;
+        }
+    }
+}
+
+fn process_inputs_debug_force_single(
+    keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
+    nbody: Res<sim::Simulator>,
+    mut debug_data: ResMut<ForceSingleDebugState>,
+    force_single_items: Query<(&mut Visibility, &ForceSingleTag)>,
+) {
+    if keys.just_pressed(bevy::input::keyboard::Key::ArrowUp) {
+        debug_data.curr_body =
+            if debug_data.curr_body == nbody.get_bodies().len() - 1 {
+                0
+            } else {
+                debug_data.curr_body + 1
+            };
+    }
+
+    if keys.just_pressed(bevy::input::keyboard::Key::ArrowDown) {
+        debug_data.curr_body =
+            if debug_data.curr_body == 0 {
+                nbody.get_bodies().len() - 1
+            } else {
+                debug_data.curr_body - 1
+            };
+    }
+
+    for (mut vis, item) in force_single_items {
+        if item.body_id == debug_data.curr_body {
             *vis = Visibility::Visible;
         } else {
             *vis = Visibility::Hidden;
@@ -136,7 +204,7 @@ fn process_inputs(
 }
 
 #[derive(Resource)]
-pub struct DebugState {
+pub struct QuadtreeDebugState {
     view_level: usize,
     max_level: usize,
 }
@@ -151,42 +219,61 @@ fn draw_quadtree(
     render_data: Res<MyAssetData>,
     nbody: Res<sim::Simulator>,
 ) {
-    let (size_params, tree) = nbody.get_quadtree();
+    use sim::up_simulation::QuadTreeUtils;
 
-    commands.insert_resource(DebugState {
+    let (size_params, tree) = nbody.get_quadtree();
+    let max_vis_depth = tree.depth.min(5);
+
+    commands.insert_resource(QuadtreeDebugState {
         view_level: 0,
-        max_level: tree.depth
+        max_level: max_vis_depth
     });
 
+    let circle = &render_data.circle_mesh;
+    let mat = &render_data.force_material;
     let square = &render_data.square_mesh;
     let red = &render_data.red_material;
     let yellow = &render_data.yellow_material;
-    for depth in 0 ..= tree.depth {
+    for depth in 0 ..= max_vis_depth {
         let cells = tree.layer_at_depth(depth);
 
-        let cell_size = sim::up_simulation::QuadTreeUtils::layer_width(depth);
+        let cell_size = QuadTreeUtils::layer_width(depth);
         for (idx, cell) in cells.iter().enumerate() {
             let cell_pos =
                 size_params.invert_normalize(
-                    sim::up_simulation::QuadTreeUtils
-                        ::position_at_layer(depth, idx)
+                    QuadTreeUtils::position_at_layer(depth, idx)
+                    + sim::Vec2::new(QuadTreeUtils::layer_width(depth + 1), QuadTreeUtils::layer_width(depth + 1))
                 );
 
             let cell_size = size_params.invert_normalize_size(
                 sim::Vec2::new(cell_size, cell_size)
             );
 
+            let text_size = (2.0 / (depth + 1) as f32).min(1.0);
+
             commands.spawn((
                 Visibility::Visible,
+                Transform::from_xyz(cell_pos.x, cell_pos.y, 1.0),
+                QuadTreeItem { level: depth },
+            ))
+            .with_child((
+                Mesh2d(circle.to_owned()),
+                MeshMaterial2d(mat.to_owned()),
+                Transform::from_xyz(cell.position.x - cell_pos.x, cell.position.y - cell_pos.y, 1.0)
+                    .with_scale([cell.mass.sqrt(), cell.mass.sqrt(), 1.0].into()),
+            ))
+            .with_child((
                 Mesh2d(square.to_owned()),
                 if cell.mass == 0.0 {
                     MeshMaterial2d(yellow.to_owned())
                 } else {
                     MeshMaterial2d(red.to_owned())
                 },
-                Transform::from_xyz(cell_pos.x, cell_pos.y, 0.0)
-                    .with_scale(Vec3::from([cell_size.x - 1.0, cell_size.y - 1.0, 1.0])),
-                QuadTreeItem { level: depth },
+                Transform::from_scale(Vec3::from([cell_size.x - 1.0, cell_size.y - 1.0, 1.0])),
+            ))
+            .with_child((
+                Text2d::new(format!("{}", idx)),
+                Transform::from_scale(Vec3::from([text_size, text_size, 1.0]))
             ));
         }
     }
@@ -196,8 +283,125 @@ fn destroy_quadtree(
     mut commands: Commands,
     quadtree_items: Query<Entity, With<QuadTreeItem>>
 ) {
-    commands.remove_resource::<DebugState>();
+    commands.remove_resource::<QuadtreeDebugState>();
 
+    for entity in quadtree_items {
+        commands.entity(entity).despawn();
+    }
+}
+
+#[derive(Component)]
+pub struct ForceTag;
+
+fn draw_forces(
+    mut commands: Commands,
+    render_data: Res<MyAssetData>,
+    nbody: Res<sim::Simulator>,
+) {
+    let (size_params, tree) = nbody.get_quadtree();
+    let forces: Vec<_> = nbody.get_forces(&tree, &size_params).map(|iter| iter.map(|(_, f)| f).sum::<sim::Vec2>()).collect();
+
+    let segment = &render_data.segment_mesh;
+    let mat = &render_data.force_material;
+
+    let min_force = *forces.iter().map(|f| ordered_float::OrderedFloat(f.magnitude())).min().unwrap();
+    let max_force = *forces.iter().map(|f| ordered_float::OrderedFloat(f.magnitude())).max().unwrap();
+    let diff_force = max_force - min_force;
+
+    for (body, force) in nbody.get_bodies().iter().zip(forces.into_iter()) {
+        let magnitude = 20.0 * (force.magnitude() - min_force) / diff_force + 10.0;
+
+        commands.spawn((
+            Mesh2d(segment.to_owned()),
+            MeshMaterial2d(mat.to_owned()),
+            Transform::from_translation([body.position.x, body.position.y, 0.0].into())
+                .with_rotation(Quat::from_rotation_arc_2d(Vec2::Y, Vec2::new(force.x, force.y).normalize()))
+                .with_scale([1.0, magnitude, 1.0].into()),
+            ForceTag,
+        ));
+    }
+}
+
+fn destroy_forces(
+    mut commands: Commands,
+    quadtree_items: Query<Entity, With<ForceTag>>
+) {
+    for entity in quadtree_items {
+        commands.entity(entity).despawn();
+    }
+}
+
+#[derive(Resource)]
+pub struct ForceSingleDebugState {
+    curr_body: usize,
+}
+
+#[derive(Component)]
+pub struct ForceSingleTag { body_id: usize }
+
+fn draw_force_single(
+    mut commands: Commands,
+    render_data: Res<MyAssetData>,
+    nbody: Res<sim::Simulator>,
+) {
+    commands.insert_resource(ForceSingleDebugState {
+        curr_body: 0,
+    });
+
+    let (size_params, tree) = nbody.get_quadtree();
+
+    let circle = &render_data.circle_mesh;
+    let segment = &render_data.segment_mesh;
+    let red = &render_data.red_material;
+    let mat = &render_data.force_material;
+    for (body_id, (body, forces)) in nbody.get_bodies().iter()
+        .zip(nbody.get_forces(&tree, &size_params)).enumerate()
+    {
+        let forces: Vec<_> = forces.collect();
+
+        let min_force = *forces.iter().map(|(_, f)| ordered_float::OrderedFloat(f.magnitude())).min().unwrap();
+        let max_force = *forces.iter().map(|(_, f)| ordered_float::OrderedFloat(f.magnitude())).max().unwrap();
+        let diff_force = max_force - min_force;
+
+        let scale = body.mass.sqrt() * 5.0;
+        commands.spawn((
+            Visibility::Visible,
+            Mesh2d(circle.to_owned()),
+            MeshMaterial2d(red.to_owned()),
+            Transform::from_translation([body.position.x, body.position.y, 0.0].into())
+                .with_scale([scale, scale, 1.0].into()),
+            ForceSingleTag { body_id },
+        ));
+
+        for (center, force) in forces.into_iter() {
+            let magnitude = (force.magnitude() - min_force) / diff_force;
+
+            commands.spawn((
+                Visibility::Visible,
+                Mesh2d(segment.to_owned()),
+                MeshMaterial2d(mat.to_owned()),
+                Transform::from_translation([center.x, center.y, 0.0].into()),
+                ForceSingleTag { body_id },
+            ))
+            .with_child((
+                Mesh2d(segment.to_owned()),
+                MeshMaterial2d(mat.to_owned()),
+                Transform::from_rotation(Quat::from_rotation_arc_2d(Vec2::Y, Vec2::new(force.x, force.y).normalize()))
+                    .with_scale([1.0, 20.0 * magnitude + 10.0, 1.0].into()),
+            ))
+            .with_child((
+                Mesh2d(circle.to_owned()),
+                MeshMaterial2d(mat.to_owned()),
+                Transform::from_scale([magnitude + 2.0, magnitude + 2.0, 1.0].into()),
+            ));
+        }
+    }
+}
+
+fn destroy_force_single(
+    mut commands: Commands,
+    quadtree_items: Query<Entity, With<ForceSingleTag>>
+) {
     for entity in quadtree_items {
         commands.entity(entity).despawn();
     }
@@ -207,10 +411,18 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<render::SimState>()
+        .add_sub_state::<render::DebugState>()
         .add_systems(Startup, (setup, setup_scene).chain())
         .add_systems(Update, process_inputs)
+        .add_systems(Update, process_inputs_debug.run_if(in_state(render::SimState::Debug)))
+        .add_systems(Update, process_inputs_debug_quadtree.run_if(in_state(render::DebugState::QuadTree)))
+        .add_systems(Update, process_inputs_debug_force_single.run_if(in_state(render::DebugState::ForceSingle)))
         .add_systems(FixedUpdate, update.run_if(in_state(render::SimState::Simulate)))
-        .add_systems(OnEnter(render::SimState::Debug), draw_quadtree)
-        .add_systems(OnExit(render::SimState::Debug), destroy_quadtree)
+        .add_systems(OnEnter(render::DebugState::QuadTree), draw_quadtree)
+        .add_systems(OnExit(render::DebugState::QuadTree), destroy_quadtree)
+        .add_systems(OnEnter(render::DebugState::Forces), draw_forces)
+        .add_systems(OnExit(render::DebugState::Forces), destroy_forces)
+        .add_systems(OnEnter(render::DebugState::ForceSingle), draw_force_single)
+        .add_systems(OnExit(render::DebugState::ForceSingle), destroy_force_single)
         .run();
 }

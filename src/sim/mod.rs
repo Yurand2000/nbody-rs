@@ -46,6 +46,10 @@ impl Simulator {
         }
     }
 
+    pub fn get_bodies(&self) -> &[Body] {
+        &self.bodies
+    }
+
     pub fn get_body(&self, id: BodyId) -> &Body {
         &self.bodies[id]
     }

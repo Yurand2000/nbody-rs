@@ -14,3 +14,12 @@ pub enum SimState {
     Simulate,
     Debug,
 }
+
+#[derive(SubStates, Clone, PartialEq, Eq, Hash, Debug, Default)]
+#[source(SimState = SimState::Debug)]
+pub enum DebugState {
+    #[default]
+    QuadTree,
+    Forces,
+    ForceSingle,
+}

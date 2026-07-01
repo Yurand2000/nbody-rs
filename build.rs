@@ -1,6 +1,12 @@
 use std::process::Command;
 
 fn main() {
+    if std::env::var_os("CARGO_FEATURE_CUDA").is_some() {
+        compile_cuda_kernels();
+    }
+}
+
+fn compile_cuda_kernels() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let lib_path = format!("{}/libkernels.a", out_dir);
 

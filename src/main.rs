@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use std::f32;
+use bevy::{input::mouse::MouseWheel, prelude::*};
 use nbody_rs::*;
 use rand::RngExt;
 
@@ -21,7 +22,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        Transform::from_scale([1.0, 1.0, 1.0].into())
+    ));
 
     commands.insert_resource(MyAssetData {
         circle_mesh: meshes.add(Circle::new(1.0)),
@@ -76,7 +80,7 @@ fn orbit_scenario(
     mut nbody: ResMut<sim::Simulator>,
 ) {
     let g = nbody.params.grav_constant;
-    let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(420);
+    let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(17);
 
     let mut new_body = |mass, pos, vel|
         new_body(mass, pos, vel, &render_data, &mut commands, &mut nbody);
@@ -85,17 +89,19 @@ fn orbit_scenario(
     let sun_mass = 10000.0;
     new_body(sun_mass, Vec2::ZERO, Vec2::ZERO);
 
-    let mut make_ring = |center_mass: f32, center: Vec2, center_vel: Vec2, ring_radius: f32, ring_delta: f32, body_min_mass, body_max_mass, ring_bodies|
+    let mut make_ring = |center_mass: f32, center: Vec2, center_vel: Vec2, ring_radius: f32, ring_delta: f32, body_min_mass, body_max_mass, min_bodies, max_bodies|
     {
-        (0 .. ring_bodies).into_iter().map(|_| {
+        let bodies = rng.random_range(min_bodies ..= max_bodies);
+        (0 .. bodies).into_iter().map(|_| {
             let mass = rng.random_range(body_min_mass ..= body_max_mass);
             let radius: f32 = ring_radius + rng.random_range(-ring_delta ..= ring_delta);
-            let x = rng.random_range(-radius ..= radius);
-            let y = (if rng.random_bool(0.5) { 1.0 } else { -1.0 }) * f32::sqrt(radius * radius - x * x);
-            let pos = Vec2::new(x, y) + center;
+
+            let theta = rng.random::<f32>() * f32::consts::TAU;
+            let dir = Vec2::from_angle(theta);
+            let pos = dir * radius + center;
 
             let vel_mag = f32::sqrt(center_mass * g / radius);
-            let vel = Vec2::new(-y, x).normalize() * vel_mag + center_vel;
+            let vel = Vec2::new(-dir.y, dir.x).normalize() * vel_mag + center_vel;
 
             new_body(mass, pos, vel);
             (mass, pos, vel)
@@ -103,9 +109,11 @@ fn orbit_scenario(
         .collect::<Vec<_>>()
     };
 
-    let objs = make_ring(sun_mass, Vec2::ZERO, Vec2::ZERO, 200.0, 100.0, 10.0, 50.0, 5);
+    make_ring(sun_mass, Vec2::ZERO, Vec2::ZERO, 400.0, 20.0, 0.1, 0.5, 3000, 5000);
+
+    let objs = make_ring(sun_mass, Vec2::ZERO, Vec2::ZERO, 100.0, 50.0, 100.0, 500.0, 3, 4);
     for (obj_mass, obj_pos, obj_vel) in objs.into_iter() {
-        make_ring(obj_mass, obj_pos, obj_vel, 20.0, 5.0, 0.1, 0.5, 10);
+        make_ring(obj_mass, obj_pos, obj_vel, 50.0, 5.0, 10.0, 20.0, 1, 2);
     }
 
     // // ring
@@ -188,15 +196,49 @@ fn update(
 
 fn process_inputs(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
+    mut mouse_wheel: MessageReader<MouseWheel>,
     state: Res<State<render::SimState>>,
     mut next_state: ResMut<NextState<render::SimState>>,
+    camera: Single<(&mut Transform, &Camera2d)>,
 ) {
     use render::SimState::*;
+    use bevy::input::keyboard::Key::*;
 
-    if keys.just_pressed(bevy::input::keyboard::Key::Space) {
+    if keys.just_pressed(Space) {
         match *state.get() {
             Simulate => next_state.set(Debug),
             Debug => next_state.set(Simulate),
+        }
+    }
+
+    let (mut camera, _) = camera.into_inner();
+
+    let mut mov = Vec3::ZERO;
+    if keys.pressed(Character("w".into())) {
+        mov.y += 1.0;
+    }
+
+    if keys.pressed(Character("a".into())) {
+        mov.x -= 1.0;
+    }
+
+    if keys.pressed(Character("s".into())) {
+        mov.y -= 1.0;
+    }
+
+    if keys.pressed(Character("d".into())) {
+        mov.x += 1.0;
+    }
+
+    camera.translation += mov * 10.0;
+
+    for evt in mouse_wheel.read() {
+        if evt.y > 0.0 {
+            camera.scale.x /= 1.2;
+            camera.scale.y /= 1.2;
+        } else {
+            camera.scale.x *= 1.2;
+            camera.scale.y *= 1.2;
         }
     }
 }

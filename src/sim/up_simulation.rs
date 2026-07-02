@@ -108,7 +108,7 @@ impl Simulator {
                 }
 
                 let diff = cell_position - body.position;
-                if diff.magnitude_squared() <= body.mass {
+                if diff.magnitude().powi(3) <= body.mass + cell_mass {
                     return None;
                 }
 

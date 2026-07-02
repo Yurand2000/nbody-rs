@@ -8,6 +8,7 @@ build = "build.rs"
 bevy = { version = "0.18.1", default-features = false, features = ["dev", "2d"]}
 nalgebra = "0.35.0"
 ordered-float = "5.3.0"
+rand = "0.10.2"
 
 [profile.dev]
 opt-level = 1

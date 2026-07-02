@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use nbody_rs::*;
+use rand::RngExt;
 
 #[derive(Resource)]
 struct MyAssetData {
@@ -37,10 +38,95 @@ fn setup(
             time_step: 0.1,
             typ: sim::SimulationType::SingleCore,
             theta: 1.0,
-            grav_constant: 6.67430,
+            grav_constant: 0.667430,
         }));
 
     commands.insert_resource(Time::<Fixed>::from_hz(30.0));
+}
+
+fn new_body(
+    mass: f32,
+    pos: Vec2,
+    vel: Vec2,
+    render_data: &MyAssetData,
+    commands: &mut Commands,
+    nbody: &mut sim::Simulator,
+) {
+    let body = sim::Body {
+        mass,
+        position: sim::Vec2::new(pos.x, pos.y),
+        velocity: sim::Vec2::new(vel.x, vel.y),
+    };
+
+    let id = BodyId(nbody.insert_body(body));
+    let mass = mass.cbrt();
+
+    commands.spawn((
+        id,
+        Mesh2d(render_data.circle_mesh.to_owned()),
+        MeshMaterial2d(render_data.white_material.to_owned()),
+        Transform::from_xyz(pos.x, pos.y, 0.0)
+            .with_scale(Vec3::from([mass, mass, 1.0]))
+    ));
+}
+
+fn orbit_scenario(
+    mut commands: Commands,
+    render_data: Res<MyAssetData>,
+    mut nbody: ResMut<sim::Simulator>,
+) {
+    let g = nbody.params.grav_constant;
+    let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(420);
+
+    let mut new_body = |mass, pos, vel|
+        new_body(mass, pos, vel, &render_data, &mut commands, &mut nbody);
+
+    // central mass
+    let sun_mass = 10000.0;
+    new_body(sun_mass, Vec2::ZERO, Vec2::ZERO);
+
+    let mut make_ring = |center_mass: f32, center: Vec2, center_vel: Vec2, ring_radius: f32, ring_delta: f32, body_min_mass, body_max_mass, ring_bodies|
+    {
+        (0 .. ring_bodies).into_iter().map(|_| {
+            let mass = rng.random_range(body_min_mass ..= body_max_mass);
+            let radius: f32 = ring_radius + rng.random_range(-ring_delta ..= ring_delta);
+            let x = rng.random_range(-radius ..= radius);
+            let y = (if rng.random_bool(0.5) { 1.0 } else { -1.0 }) * f32::sqrt(radius * radius - x * x);
+            let pos = Vec2::new(x, y) + center;
+
+            let vel_mag = f32::sqrt(center_mass * g / radius);
+            let vel = Vec2::new(-y, x).normalize() * vel_mag + center_vel;
+
+            new_body(mass, pos, vel);
+            (mass, pos, vel)
+        })
+        .collect::<Vec<_>>()
+    };
+
+    let objs = make_ring(sun_mass, Vec2::ZERO, Vec2::ZERO, 200.0, 100.0, 10.0, 50.0, 5);
+    for (obj_mass, obj_pos, obj_vel) in objs.into_iter() {
+        make_ring(obj_mass, obj_pos, obj_vel, 20.0, 5.0, 0.1, 0.5, 10);
+    }
+
+    // // ring
+    // let ring_radius = 400.0;
+    // let ring_delta = 10.0;
+    // let body_min_mass = 0.1;
+    // let body_max_mass = 0.5;
+    // let ring_bodies = 3000;
+
+    // for _ in 0 .. ring_bodies {
+    //     let mass = rng.random_range(body_min_mass ..= body_max_mass);
+    //     let radius = ring_radius + rng.random_range(-ring_delta ..= ring_delta);
+    //     let x = rng.random_range(-radius ..= radius);
+    //     let y = (if rng.random_bool(0.5) { 1.0 } else { -1.0 }) * f32::sqrt(radius * radius - x * x);
+    //     let pos = Vec2::new(x, y);
+
+    //     let vel_mag = f32::sqrt(sun_mass * g / radius);
+    //     let vel = Vec2::new(-y, x).normalize() * vel_mag;
+
+    //     new_body(mass, pos, vel);
+    // }
 }
 
 fn setup_scene(
@@ -48,31 +134,12 @@ fn setup_scene(
     render_data: Res<MyAssetData>,
     mut nbody: ResMut<sim::Simulator>,
 ) {
-    let circle = &render_data.circle_mesh;
-    let white = &render_data.white_material;
+    // let mut new_body = |mass, posx, posy, velx, vely|
+    //     new_body(mass, Vec2::new(posx, posy), Vec2::new(velx, vely), &render_data, &mut commands, &mut nbody);
 
-    let mut new_body = |mass, pos_x, pos_y, vel_x, vel_y| {
-        let body = sim::Body {
-            mass,
-            position: sim::Vec2::new(pos_x, pos_y),
-            velocity: sim::Vec2::new(vel_x, vel_y),
-        };
-
-        let id = BodyId(nbody.insert_body(body));
-        let mass = mass.sqrt();
-
-        commands.spawn((
-            id,
-            Mesh2d(circle.to_owned()),
-            MeshMaterial2d(white.to_owned()),
-            Transform::from_xyz(pos_x, pos_y, 0.0)
-                .with_scale(Vec3::from([mass, mass, 1.0]))
-        ));
-    };
-
-    // new_body(1.0, -100.0, 0.0, 0.0, 0.0);
-    // new_body(2.0, 100.0, 0.0, 0.0, 0.0);
-    // new_body(4.0, 0.0, 0.0, 0.0, 0.0);
+    // new_body(10.0, -100.0, 0.0, 0.0, 0.0);
+    // new_body(20.0, 100.0, 0.0, 0.0, 0.0);
+    // new_body(40.0, 0.0, 00.0, 0.0, 0.0);
 
     // new_body(1.0, -100.0, 25.0, 0.0, 0.0);
     // new_body(2.0, 100.0, 25.0, 0.0, 0.0);
@@ -90,15 +157,19 @@ fn setup_scene(
     //     }
     // }
 
-    for x in -50..50 {
-        for y in -50..50 {
-            let mass = 1.0;
-            let x = x as f32 * 10.0;
-            let y = y as f32 * 10.0;
+    // for x in -50..50 {
+    //     for y in -50..50 {
+    //         let mass = 1.0;
+    //         let x = x as f32 * 10.0;
+    //         let y = y as f32 * 10.0;
 
-            new_body(mass, x, y, 0.0, 0.0);
-        }
-    }
+    //         new_body(mass, x, y, 0.0, 0.0);
+    //     }
+    // }
+
+    println!("Spawning Scene");
+    orbit_scenario(commands, render_data, nbody);
+    println!("Spawned Scene");
 }
 
 fn update(

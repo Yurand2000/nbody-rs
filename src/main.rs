@@ -38,7 +38,7 @@ fn setup(
         force_material: materials.add(Color::linear_rgba(1.0, 0.2, 1.0, 1.0)),
     });
 
-    commands.insert_resource(Time::<Fixed>::from_hz(30.0));
+    commands.insert_resource(Time::<Fixed>::from_hz(1.0));
 }
 
 fn new_body(
@@ -183,6 +183,13 @@ fn update(
 
     let total = std::time::Instant::now() - start;
     println!("step duration: {total:?}");
+
+    let start = std::time::Instant::now();
+
+    nbody.pull_updates();
+
+    let total = std::time::Instant::now() - start;
+    println!("pull duration: {total:?}");
 
     for (mut transform, id) in bodies {
         let body = nbody.get_body(id.0);

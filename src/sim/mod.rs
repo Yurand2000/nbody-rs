@@ -5,8 +5,6 @@ pub mod quadtree;
 
 pub use quadtree::*;
 
-use crate::cuda;
-
 pub type Vec2f = nalgebra::Vector2<f32>;
 
 pub type BodyId = usize;

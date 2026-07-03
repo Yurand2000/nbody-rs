@@ -32,30 +32,30 @@ __device__ vec2f __cuda_leapfrog_force(
         theta
     )) {
         // If the body belongs to the cell, update the cell's mass and CoM
-        float mass = quadtree.mass[result.cell];
-        vec2f com = quadtree.center_of_mass[result.cell];
+        // float mass = quadtree.mass[result.cell];
+        // vec2f com = quadtree.center_of_mass[result.cell];
 
-        if (result.belongs_to_cell) {
-            com = __vec2f_mul(com, mass);
-            mass -= bodies.mass[body_id];
-            if (mass < FLT_EPSILON)
-                continue;
+        // if (result.belongs_to_cell) {
+        //     com = __vec2f_mul(com, mass);
+        //     mass -= bodies.mass[body_id];
+        //     if (mass < FLT_EPSILON)
+        //         continue;
 
-            com = __vec2f_sub(com, __vec2f_mul(bodies.position[body_id], bodies.mass[body_id]));
-            com = __vec2f_div(com, mass);
-        }
+        //     com = __vec2f_sub(com, __vec2f_mul(bodies.position[body_id], bodies.mass[body_id]));
+        //     com = __vec2f_div(com, mass);
+        // }
 
-        vec2f diff = __vec2f_sub(com, bodies.position[body_id]);
+        // vec2f diff = __vec2f_sub(com, bodies.position[body_id]);
 
-        // Remove interactions when they are too close
-        if (powf(__vec2f_magnitude(diff), 3.0f) <= mass + bodies.mass[body_id])
-            continue;
+        // // Remove interactions when they are too close
+        // if (powf(__vec2f_magnitude(diff), 3.0f) <= mass + bodies.mass[body_id])
+        //     continue;
 
-        vec2f direction = __vec2f_normalize(diff);
-        float magnitude = params.g_constant * mass * bodies.mass[body_id] /
-                          __vec2f_magnitude_sqr(diff);
+        // vec2f direction = __vec2f_normalize(diff);
+        // float magnitude = params.g_constant * mass * bodies.mass[body_id] /
+        //                   __vec2f_magnitude_sqr(diff);
 
-        total_force = __vec2f_add(total_force, __vec2f_mul(direction, magnitude));
+        // total_force = __vec2f_add(total_force, __vec2f_mul(direction, magnitude));
     }
 
     __cuda_quadtree_iter_free(iter);
@@ -77,16 +77,16 @@ __global__ void __cuda_leapfrog_kick(
         vec2f force = __cuda_leapfrog_force(bodies, quadtree, params, info, i);
 
         // compute acceleration
-        if (__vec2f_magnitude_sqr(force) < FLT_EPSILON)
-            return;
+        // if (__vec2f_magnitude_sqr(force) < FLT_EPSILON)
+        //     return;
 
-        vec2f acceleration = __vec2f_div(force, mass);
+        // vec2f acceleration = __vec2f_div(force, mass);
 
-        // v <= v + \Delta_t / 2 * a
-        *velocity = __vec2f_add(
-            *velocity,
-            __vec2f_mul(acceleration, params.time_step / 2.0)
-        );
+        // // v <= v + \Delta_t / 2 * a
+        // *velocity = __vec2f_add(
+        //     *velocity,
+        //     __vec2f_mul(acceleration, params.time_step / 2.0)
+        // );
     }
 }
 

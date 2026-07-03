@@ -11,4 +11,5 @@ unsafe extern "C" {
     pub unsafe fn cudaMalloc(devPtr: *mut *mut c_void, size: usize) -> cudaError_t;
     pub unsafe fn cudaFree(devPtr: *mut c_void) -> cudaError_t;
     pub unsafe fn cudaMemcpy(dst: *mut c_void, src: *const c_void, count: usize, kind: i32) -> cudaError_t;
+    pub unsafe fn cudaDeviceSynchronize() -> cudaError_t;
 }

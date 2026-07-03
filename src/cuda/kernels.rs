@@ -174,6 +174,19 @@ impl CudaQuadTree {
             depth,
         })
     }
+
+    pub fn read_cell(&self, idx: usize) -> CudaResult<crate::sim::QuadTreeCell> {
+        let mut mass = 0.0;
+        let mut com = ffi::vec2f::new();
+
+        self.mass.copy_out_single(&mut mass, idx)?;
+        self.center_of_mass.copy_out_single(&mut com, idx)?;
+
+        Ok(crate::sim::QuadTreeCell {
+            mass,
+            position: com.into(),
+        })
+    }
 }
 
 impl Into<ffi::quadtree> for &mut CudaQuadTree {

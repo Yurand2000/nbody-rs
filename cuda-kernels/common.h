@@ -58,11 +58,11 @@ inline u64 is_pow4_u64(u64 x) {
 
 // Body indices when iterating over bodies
 __device__ inline u64 __per_thread_bodies(u64 num_bodies) {
-    return num_bodies / gridDim.x * blockDim.x;
+    return ceil_div_u64(num_bodies, gridDim.x * blockDim.x);
 }
 
 __device__ inline u64 __thread_body_start(u64 num_bodies) {
-    return blockDim.x * blockIdx.x + threadIdx.x * __per_thread_bodies(num_bodies);
+    return (blockDim.x * blockIdx.x + threadIdx.x) * __per_thread_bodies(num_bodies);
 }
 
 __device__ inline u64 __thread_body_end(u64 num_bodies) {
@@ -88,28 +88,26 @@ __host__ __device__ inline u64 __layer_end(u64 depth) {
     return __layer_start(depth + 1);
 }
 
+__device__ inline u64 __layer_dim(u64 depth) {
+    return 1 << depth;
+}
+
+__device__ inline u64 __layer_size(u64 depth) {
+    return __layer_dim(depth) * __layer_dim(depth);
+}
+
 __device__ inline u64 __thread_layer_start(u64 depth) {
     u64 idx = blockDim.x * blockIdx.x + threadIdx.x;
-    u64 par_depth = __log2_u64(blockDim.x) + __log2_u64(gridDim.x);
-    if (par_depth <= depth) {
-        return __layer_start(depth) + idx * (1 << (depth - par_depth));
-    } else {
-        return __layer_start(depth) + ceil_div_u64(idx, 1 << (par_depth - depth));
-    }
+    u64 layer_size = __layer_size(depth);
+    u64 num_threads = blockDim.x * gridDim.x;
+    return __layer_start(depth) + ceil_div_u64(layer_size * idx, num_threads);
 }
 
 __device__ inline u64 __thread_layer_end(u64 depth) {
     u64 idx = blockDim.x * blockIdx.x + threadIdx.x + 1;
-    u64 par_depth = __log2_u64(blockDim.x) + __log2_u64(gridDim.x);
-    if (par_depth <= depth) {
-        return __layer_start(depth) + (idx + 1) * (1 << (depth - par_depth));
-    } else {
-        return __layer_start(depth) + ceil_div_u64(idx + 1, 1 << (par_depth - depth));
-    }
-}
-
-__device__ inline u64 __layer_dim(u64 depth) {
-    return 1 << depth;
+    u64 layer_size = __layer_size(depth);
+    u64 num_threads = blockDim.x * gridDim.x;
+    return __layer_start(depth) + ceil_div_u64(layer_size * idx, num_threads);
 }
 
 __device__ inline float __layer_width(u64 depth) {
@@ -148,7 +146,7 @@ __device__ inline vec2f __position_in_layer(u64 cell) {
 
 __device__ inline u64 __nearest_cell_at_layer(u64 depth, vec2f position) {
     u64 out = 0;
-    float layer_dim = __layer_dim(depth);
+    float layer_dim = __layer_dim(1);
     for (u64 l = 0; l < depth; l++) {
         u64 cell = __nearest_cell_in_layer(__vec2f_mul(position, layer_dim));
         out = out * 4 + cell;

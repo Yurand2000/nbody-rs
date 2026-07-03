@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <float.h>
 #include <assert.h>
+#include <stdio.h>
 #include "common.h"
 
 __global__ void __cuda_compute_bodies_info(
@@ -13,7 +14,7 @@ __global__ void __cuda_compute_bodies_info(
     extern __shared__ vec2f pos_data[];
 
     vec2f *min_pos = pos_data;
-    vec2f *max_pos = pos_data + gridDim.x;
+    vec2f *max_pos = pos_data + blockDim.x;
 
     u64 idx = threadIdx.x;
 
@@ -23,6 +24,8 @@ __global__ void __cuda_compute_bodies_info(
         min_pos[idx] = __vec2f_comp_min(min_pos[idx], bodies.position[i]);
         max_pos[idx] = __vec2f_comp_max(max_pos[idx], bodies.position[i]);
     }
+
+    __syncthreads();
 
     // Reduce min/max positions (POSSIBLE PARALLELIZED REDUCE)
     if (idx != 0)
@@ -77,6 +80,11 @@ cudaError_t cuda_compute_normalization_data(
 
     vec2f* data = NULL;
     err = cudaMalloc((void**)(&data), sizeof(vec2f) * 2 * num_blocks);
+    if (err != cudaSuccess)
+        return err;
+
+    cudaMemset(data, 0, sizeof(vec2f) * 2 * num_blocks);
+    err = cudaGetLastError();
     if (err != cudaSuccess)
         return err;
 

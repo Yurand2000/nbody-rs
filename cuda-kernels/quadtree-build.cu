@@ -2,89 +2,65 @@
 #include <stdint.h>
 #include <float.h>
 #include <assert.h>
+#include <stdio.h>
 #include "common.h"
 
 __device__ void combine_cell_from_layer_below(float* mass, vec2f* mass_pos, u64 c);
 
-__global__ void __cuda_quadtree_last_layer(
+__global__ void __cuda_quadtree_last_layer_per_body(
     struct bodies bodies,
     struct quadtree quadtree,
     struct normalization_data info
 ) {
-    // Helper variables
-    u64 layer_last = quadtree.depth - 1;
-
     // Build last layer
     // #### Process all bodies
-    u64 offset = __layer_start(layer_last);
+    u64 offset = __layer_start(quadtree.depth);
     for (u64 i = __thread_body_start(bodies.count); i < __thread_body_end(bodies.count); i++) {
-        u64 idx = __nearest_cell_at_layer(layer_last, __normalize_pos(bodies.position[i], info));
+        u64 idx = __nearest_cell_at_layer(quadtree.depth, __normalize_pos(bodies.position[i], info));
 
         atomicAdd(&quadtree.mass[offset + idx], bodies.mass[i]);
         atomicAdd(&quadtree.center_of_mass[offset + idx].x, bodies.position[i].x * bodies.mass[i]);
         atomicAdd(&quadtree.center_of_mass[offset + idx].y, bodies.position[i].y * bodies.mass[i]);
     }
+}
 
-    __syncthreads();
-
+__global__ void __cuda_quadtree_last_layer_per_cell(
+    struct bodies bodies,
+    struct quadtree quadtree,
+    struct normalization_data info
+) {
     // Build last layer
     // #### Average the center of mass
-    for (u64 cell = __thread_layer_start(layer_last); cell < __thread_layer_end(layer_last); cell++) {
-        if (quadtree.mass[cell] < FLT_EPSILON)
-            continue;
-
-        quadtree.center_of_mass[cell] =
-            __vec2f_div(quadtree.center_of_mass[cell], quadtree.mass[cell]);
+    for (u64 cell = __thread_layer_start(quadtree.depth); cell < __thread_layer_end(quadtree.depth); cell++) {
+        if (quadtree.mass[cell] > FLT_EPSILON) {
+            quadtree.center_of_mass[cell] =
+                __vec2f_div(quadtree.center_of_mass[cell], quadtree.mass[cell]);
+        }
     }
 }
 
-__global__ void __cuda_quadtree_reduce(
-    struct quadtree quadtree
+__global__ void __cuda_quadtree_reduce_at_layer(
+    struct quadtree quadtree,
+    u64 layer
 ) {
-    // Helper variables
-    u64 layer_last = quadtree.depth - 1;
-    u64 layer_threads = __log2_u64(blockDim.x) + __log2_u64(gridDim.x);
+    float *mass = quadtree.mass;
+    vec2f *com = quadtree.center_of_mass;
 
-    // Reduce up to a single per-thread cell
-        // from last layer to layer 10 (1024 cells)
-    u64 per_thread_layers = quadtree.depth > layer_threads ? quadtree.depth - layer_threads : 0;
-    for (u64 l = 0; l < per_thread_layers; l++) {
-        u64 layer = layer_last - l - 1;
+    for (u64 c = __thread_layer_start(layer); c < __thread_layer_end(layer); c++) {
+        u64 in_layer_cell = c - __layer_start(layer);
+        u64 cn = in_layer_cell * 4 + __layer_start(layer + 1);
 
-        for (u64 cell = __thread_layer_start(layer); cell < __thread_layer_end(layer); cell++) {
-            combine_cell_from_layer_below(quadtree.mass, quadtree.center_of_mass, cell);
-        }
+        mass[c] = mass[cn] + mass[cn+1] + mass[cn+2] + mass[cn+3];
+
+        com[c].x =
+            com[cn].x * mass[cn] + com[cn+1].x * mass[cn+1] +
+            com[cn+2].x * mass[cn+2] + com[cn+3].x * mass[cn+3];
+        com[c].y =
+            com[cn].y * mass[cn] + com[cn+1].y * mass[cn+1] +
+            com[cn+2].y * mass[cn+2] + com[cn+3].y * mass[cn+3];
+
+        com[c] = __vec2f_div(com[c], mass[c]);
     }
-
-    __syncthreads();
-
-    // Reduce to layer zero
-    u64 max_depth = min(layer_last, (u64)(layer_threads - 1));
-    u64 cell = threadIdx.x;
-    for (u64 l = 0; l < max_depth; l++) {
-        if (cell % 4 != 0) {
-            return;
-        }
-
-        combine_cell_from_layer_below(quadtree.mass, quadtree.center_of_mass, cell);
-        cell /= 4;
-
-        __syncthreads();
-    }
-}
-
-// Average the position and masses of cells at the next layer
-__device__ void combine_cell_from_layer_below(float* mass, vec2f* mass_pos, u64 c) {
-    mass[c] = mass[4*c] + mass[4*c+1] + mass[4*c+2] + mass[4*c+3];
-
-    mass_pos[c].x =
-        mass_pos[4*c].x * mass[4*c] + mass_pos[4*c+1].x * mass[4*c+1] +
-        mass_pos[4*c+2].x * mass[4*c+2] + mass_pos[4*c+3].x * mass[4*c+3];
-    mass_pos[c].y =
-        mass_pos[4*c].y * mass[4*c] + mass_pos[4*c+1].y * mass[4*c+1] +
-        mass_pos[4*c+2].y * mass[4*c+2] + mass_pos[4*c+3].y * mass[4*c+3];
-
-    mass_pos[c] = __vec2f_div(mass_pos[c], mass[c]);
 }
 
 extern "C" {
@@ -119,15 +95,24 @@ cudaError_t cuda_quadtree_build(
     assert(is_pow4_u64(num_blocks));
     assert(is_pow4_u64(num_threads));
 
-    __cuda_quadtree_last_layer<<<num_blocks, num_threads>>>(bodies, quadtree, info);
+    __cuda_quadtree_last_layer_per_body<<<num_blocks, num_threads>>>(bodies, quadtree, info);
     err = cudaGetLastError();
     if (err != cudaSuccess)
         return err;
 
-    __cuda_quadtree_reduce<<<num_blocks, num_threads>>>(quadtree);
+    __cuda_quadtree_last_layer_per_cell<<<num_blocks, num_threads>>>(bodies, quadtree, info);
     err = cudaGetLastError();
     if (err != cudaSuccess)
         return err;
+
+    for (u64 l = 0; l < quadtree.depth; l++) {
+        u64 layer = quadtree.depth - 1 - l;
+
+        __cuda_quadtree_reduce_at_layer<<<num_blocks, num_threads>>>(quadtree, layer);
+        err = cudaGetLastError();
+        if (err != cudaSuccess)
+            return err;
+    }
 
     return cudaSuccess;
 }

@@ -1,4 +1,4 @@
-use crate::cuda::kernels::*;
+use crate::cuda::{Cuda, kernels::*};
 use super::*;
 
 pub struct CUDASimulator {
@@ -13,7 +13,7 @@ pub struct CUDASimulator {
 
 impl CUDASimulator {
     const MAX_NUM_BODIES: usize = 100000;
-    const QUADTREE_DEPTH: usize = 10;
+    const QUADTREE_DEPTH: usize = 5;
 
     pub fn new() -> Self {
         Self {
@@ -28,8 +28,9 @@ impl CUDASimulator {
     }
 
     fn upload_bodies(&mut self) {
-        if self.bodies_need_update { return; }
+        if !self.bodies_need_update { return; }
 
+        println!("BODY UPDATE");
         for (idx, body) in self.host_bodies.iter().enumerate() {
             self.bodies.write_body(body, idx).unwrap();
         }
@@ -38,7 +39,7 @@ impl CUDASimulator {
     }
 
     fn download_bodies(&mut self) {
-        if self.host_bodies_need_update { return; }
+        if !self.host_bodies_need_update { return; }
 
         for (idx, body) in self.host_bodies.iter_mut().enumerate() {
             *body = self.bodies.read_body(idx).unwrap();
@@ -71,7 +72,7 @@ impl Simulator for CUDASimulator {
     }
 
     fn step(&mut self) {
-        let num_blocks = 16;
+        let num_blocks = 1;
         let num_threads = 256;
 
         // Upload bodies if the user inserted some
@@ -84,23 +85,27 @@ impl Simulator for CUDASimulator {
         zero_quadtree(&mut self.quadtree).unwrap();
         quadtree_build(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.norm_data, num_blocks, num_threads).unwrap();
 
+        Cuda::device_synchronize().unwrap();
+
         // First kick
         leapfrog_kick(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.params, &mut self.norm_data, num_blocks, num_threads).unwrap();
 
-        // Drift
-        leapfrog_drift(&mut self.bodies, self.host_bodies.len(), &mut self.params, num_blocks, num_threads).unwrap();
+        Cuda::device_synchronize().unwrap();
 
-        // Re-compute quadtree normalization data
-        compute_normalization_data(&mut self.bodies, self.host_bodies.len(), &mut self.norm_data, num_blocks, num_threads).unwrap();
+        // // Drift
+        // leapfrog_drift(&mut self.bodies, self.host_bodies.len(), &mut self.params, num_blocks, num_threads).unwrap();
 
-        // Re-compute quadtree
-        zero_quadtree(&mut self.quadtree).unwrap();
-        quadtree_build(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.norm_data, num_blocks, num_threads).unwrap();
+        // // Re-compute quadtree normalization data
+        // compute_normalization_data(&mut self.bodies, self.host_bodies.len(), &mut self.norm_data, num_blocks, num_threads).unwrap();
 
-        // Second kick
-        leapfrog_kick(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.params, &mut self.norm_data, num_blocks, num_threads).unwrap();
+        // // Re-compute quadtree
+        // zero_quadtree(&mut self.quadtree).unwrap();
+        // quadtree_build(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.norm_data, num_blocks, num_threads).unwrap();
 
-        self.host_bodies_need_update = true;
+        // // Second kick
+        // leapfrog_kick(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.params, &mut self.norm_data, num_blocks, num_threads).unwrap();
+
+        // self.host_bodies_need_update = true;
     }
 
     fn pull_updates(&mut self) {
@@ -119,10 +124,20 @@ impl Simulator for CUDASimulator {
 
 impl SimulatorExt for CUDASimulator {
     fn get_quadtree(&self) -> Option<QuadTree<QuadTreeCell>> {
-        None
-        // let mut tree = QuadTree::new(QuadTreeUtils::MAX_DEPTH_CPU.min(self.quadtree.depth), (&self.norm_data).into());
+        let mut tree = QuadTree::new(self.quadtree.depth.min(QuadTreeUtils::MAX_DEPTH_CPU), (&self.norm_data).into());
 
-        // self.quadtree.mass.
+    println!("quadtree norm: {:?}", tree.norm);
+    println!("quadtree norm uni: {:?}", NormalizationData::new(&self.host_bodies));
+    let start = std::time::Instant::now();
+
+        for (idx, cell) in tree.cells.iter_mut().enumerate() {
+            *cell = self.quadtree.read_cell(idx).unwrap();
+        }
+
+    let total = std::time::Instant::now() - start;
+    println!("quadtree download: {total:?}");
+
+        Some(tree)
     }
 
     fn get_forces(&self, quadtree: &QuadTree<QuadTreeCell>) -> Option<Vec<Vec2f>> { None }

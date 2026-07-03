@@ -16,8 +16,8 @@ struct visit_cell {
 };
 
 struct quadtree_iter {
-    struct visit_cell *visit_stack_base;
-    struct visit_cell *visit_stack_top;
+    struct visit_cell *visit_stack;
+    u64 stack_size;
     u64 *nearest_cells;
 };
 

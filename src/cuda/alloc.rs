@@ -26,9 +26,9 @@ impl<T> CudaVec<T> {
 
         let err = unsafe {
             cudaMemcpy(
-                self.ptr.cast(),
-                data.as_ptr() as *const std::ffi::c_void,
-                offset + data.len(),
+                self.ptr.add(offset).cast(),
+                data.as_ptr().cast(),
+                data.len() * size_of::<T>(),
                 CUDA_MEMCPY_HOST_TO_DEVICE,
             )
         };
@@ -47,9 +47,9 @@ impl<T> CudaVec<T> {
 
         let err = unsafe {
             cudaMemcpy(
-                data.as_mut_ptr() as *mut std::ffi::c_void,
-                self.ptr.cast_const().cast(),
-                offset + data.len(),
+                data.as_mut_ptr().cast(),
+                self.ptr.add(offset).cast_const().cast(),
+                data.len() * size_of::<T>(),
                 CUDA_MEMCPY_DEVICE_TO_HOST,
             )
         };
@@ -58,7 +58,7 @@ impl<T> CudaVec<T> {
     }
 
     pub fn copy_out_single(&self, data: &mut T, offset: usize) -> CudaResult<()> {
-        self.copy_out(std::slice::from_mut(data), 0)
+        self.copy_out(std::slice::from_mut(data), offset)
     }
 
     pub unsafe fn get_ptr(&self) -> *const T {

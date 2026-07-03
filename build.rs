@@ -10,10 +10,11 @@ fn compile_cuda_kernels() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let lib_path = format!("{}/libkernels.a", out_dir);
 
-    let input_dir = std::path::Path::new("cuda-kernels");
+    let input_dir = "cuda-kernels";
+    let input_dir_path = std::path::Path::new(input_dir);
 
     let obj_files =
-        std::fs::read_dir(input_dir).expect("read_dir failed")
+        std::fs::read_dir(input_dir_path).expect("read_dir failed")
             .map(|entry| entry.expect("dir entry failed").path())
             .filter(|path| path.extension().and_then(|s| s.to_str()) == Some("cu"))
             .map(|path| {
@@ -30,7 +31,10 @@ fn compile_cuda_kernels() {
                         &in_file,
                         "-o",
                         &out_file,
+                        "-I",
+                        &input_dir,
                         "--compiler-options=-fPIC",
+                        "-dc",
                     ])
                     .status()
                     .expect("failed to run nvcc");

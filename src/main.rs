@@ -371,7 +371,7 @@ fn draw_quadtree(
     render_data: Res<MyAssetData>,
     nbody: Res<sim::Simulator>,
 ) {
-    use sim::up_simulation::QuadTreeUtils;
+    use sim::QuadTreeUtils;
 
     let (size_params, tree) = nbody.get_quadtree();
     let max_vis_depth = tree.depth.min(8);

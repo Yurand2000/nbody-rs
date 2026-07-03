@@ -3,48 +3,167 @@
 
 #include <stdint.h>
 
+#include "vec2f.h"
+
 extern "C" {
 
-typedef struct vec2f {
-    float x;
-    float y;
-};
+typedef uint64_t u64;
 
 struct bodies {
     float *mass;
     vec2f *position;
     vec2f *velocity;
     u64 count;
-}
+};
+
+struct bodies_info {
+    vec2f offset;
+    vec2f size;
+};
 
 struct quadtree {
     float *mass;
     vec2f *center_of_mass;
     u64 depth;
-}
+};
 
 struct params {
+    // Simulation Params
     float time_step;
     float theta;
     float g_constant;
-}
+};
 
 }
 
-__device__ u64 layer_start(u64 depth) {
-    return 0;
+// Utils
+__host__ __device__ u64 ceil_div_u64(u64 a, u64 b) {
+  return (a + b - 1) / b;
 }
 
-__device__ u64 nearest_cell_at_layer(u64 depth, vec2f position) {
-    return 0;
+__device__ u64 __log2_u64(u64 x) {
+    return 31 - __clz(x);
 }
 
-__device__ u64 first_cell_at_next_layer(u64 idx) {
-    return idx * 4;
+u64 is_pow2_u64(u64 x) {
+    return x && !(x & (x - 1));
 }
 
-__device__ u64 parent_cell_at_prev_layer(u64 idx) {
-    return idx / 4;
+u64 is_pow4_u64(u64 x) {
+    if (!x) return 0;
+    if (x & (x - 1)) return 0;
+    u64 idx = 63 - __builtin_clz(x);
+    return (idx & 1) == 0;
+}
+
+// Body indices when iterating over bodies
+__device__ u64 __per_thread_bodies(u64 num_bodies) {
+    return num_bodies / gridDim.x * blockDim.x;
+}
+
+__device__ u64 __thread_body_start(u64 num_bodies) {
+    return blockDim.x * blockIdx.x + threadIdx.x * __per_thread_bodies(num_bodies);
+}
+
+__device__ u64 __thread_body_end(u64 num_bodies) {
+    return min(
+        (blockDim.x * blockIdx.x + threadIdx.x + 1) * __per_thread_bodies(num_bodies),
+        num_bodies
+    );
+}
+
+// Cell Indies when iterating over the quadtree layers
+__host__ __device__ u64 __layer_start(u64 depth) {
+    u64 size = 0;
+    u64 tmp = 1;
+    for (u64 i = 0; i < depth; i++){
+        size += tmp;
+        tmp *= 4;
+    }
+
+    return size;
+}
+
+__host__ __device__ u64 __layer_end(u64 depth) {
+    return __layer_start(depth + 1);
+}
+
+__device__ u64 __thread_layer_start(u64 depth) {
+    u64 idx = blockDim.x * blockIdx.x + threadIdx.x;
+    u64 par_depth = __log2_u64(blockDim.x) + __log2_u64(gridDim.x);
+    if (par_depth <= depth) {
+        return __layer_start(depth) + idx * (1 << (depth - par_depth));
+    } else {
+        return __layer_start(depth) + ceil_div_u64(idx, 1 << (par_depth - depth));
+    }
+}
+
+__device__ u64 __thread_layer_end(u64 depth) {
+    u64 idx = blockDim.x * blockIdx.x + threadIdx.x + 1;
+    u64 par_depth = __log2_u64(blockDim.x) + __log2_u64(gridDim.x);
+    if (par_depth <= depth) {
+        return __layer_start(depth) + (idx + 1) * (1 << (depth - par_depth));
+    } else {
+        return __layer_start(depth) + ceil_div_u64(idx + 1, 1 << (par_depth - depth));
+    }
+}
+
+__device__ u64 __layer_dim(u64 depth) {
+    return 1 << depth;
+}
+
+__device__ float __layer_width(u64 depth) {
+    return 1.0f / (float)(__layer_dim(depth));
+}
+
+__device__ u64 __nearest_cell_in_layer(vec2f position) {
+    if (position.x <= 1.0) {
+        if (position.y <= 1.0) {
+            return 0;
+        } else {
+            return 1;
+        }
+    } else {
+        if (position.y <= 1.0) {
+            return 2;
+        } else {
+            return 3;
+        }
+    }
+}
+
+__device__ vec2f __position_in_layer(u64 cell) {
+    switch (cell) {
+        case 0:
+        default:
+            return { .x = 0.0f, .y = 0.0f };
+        case 1:
+            return { .x = 0.0f, .y = 1.0f };
+        case 2:
+            return { .x = 1.0f, .y = 0.0f };
+        case 3:
+            return { .x = 1.0f, .y = 1.0f };
+    }
+}
+
+__device__ u64 __nearest_cell_at_layer(u64 depth, vec2f position) {
+    u64 out = 0;
+    float layer_dim = __layer_dim(depth);
+    for (u64 l = 0; l < depth; l++) {
+        u64 cell = __nearest_cell_in_layer(__vec2f_mul(position, layer_dim));
+        out = out * 4 + cell;
+        position = __vec2f_sub(position, __vec2f_div(__position_in_layer(cell), layer_dim));
+        layer_dim *= 2.0;
+    }
+
+    return out;
+}
+
+__device__ vec2f __normalize_pos(vec2f position, const struct bodies_info *info) {
+    return {
+        .x = (position.x - info->offset.x) / info->size.x,
+        .y = 1.0f - ((position.y - info->offset.y) / info->size.y),
+    };
 }
 
 #endif

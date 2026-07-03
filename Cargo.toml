@@ -17,4 +17,5 @@ opt-level = 1
 opt-level = 3
 
 [features]
+default = ["cuda"]
 cuda = []

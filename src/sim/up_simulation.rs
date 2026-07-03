@@ -11,16 +11,16 @@ pub struct QuadTree<T> {
     pub depth: usize,
 }
 
-pub struct ExtraParams {
+pub struct BodiesInfo {
     offset: Vec2,
     size: Vec2,
     min_distance: f32,
 }
 
 impl Simulator {
-    pub fn get_quadtree(&self) -> (ExtraParams, QuadTree<QuadTreeCell>) {
+    pub fn get_quadtree(&self) -> (BodiesInfo, QuadTree<QuadTreeCell>) {
         // Compute bodies params
-        let bodies_params = ExtraParams::from_bodies(&self.bodies);
+        let bodies_params = BodiesInfo::new(&self.bodies);
 
         // Compute quadtree
         let tree = self.build_quadtree(&bodies_params);
@@ -28,7 +28,7 @@ impl Simulator {
         (bodies_params, tree)
     }
 
-    pub fn get_forces(&self, tree: &QuadTree<QuadTreeCell>, extra: &ExtraParams) -> impl Iterator<Item = impl Iterator<Item = (Vec2, Vec2)>> {
+    pub fn get_forces(&self, tree: &QuadTree<QuadTreeCell>, extra: &BodiesInfo) -> impl Iterator<Item = impl Iterator<Item = (Vec2, Vec2)>> {
         self.bodies.iter()
             .map(|body| Self::kick_force_iter(body, &self.params, tree, extra))
     }
@@ -37,28 +37,28 @@ impl Simulator {
     // with Quadtree approximation
     pub fn step_uniproc(&mut self) {
         // Compute bodies params
-        let bodies_params = ExtraParams::from_bodies(&self.bodies);
+        let info = BodiesInfo::new(&self.bodies);
 
         // Compute quadtree
-        let tree = self.build_quadtree(&bodies_params);
+        let tree = self.build_quadtree(&info);
 
         // First kick
-        self.kick(&tree, &bodies_params);
+        self.kick(&tree, &info);
 
         // Drift
-        self.drift(&bodies_params);
+        self.drift();
 
         // Re-compute bodies params
-        let bodies_params = ExtraParams::from_bodies(&self.bodies);
+        let info = BodiesInfo::new(&self.bodies);
 
         // Re-compute quadtree
-        let tree = self.build_quadtree(&bodies_params);
+        let tree = self.build_quadtree(&info);
 
         // Second kick
-        self.kick(&tree, &bodies_params);
+        self.kick(&tree, &info);
     }
 
-    fn build_quadtree(&self, extra: &ExtraParams) -> QuadTree<QuadTreeCell> {
+    fn build_quadtree(&self, extra: &BodiesInfo) -> QuadTree<QuadTreeCell> {
         let mut tree: QuadTree<QuadTreeCell> = QuadTree::new(extra.max_depth());
         let max_depth = tree.depth;
         for depth in 0 ..= max_depth {
@@ -90,7 +90,7 @@ impl Simulator {
         body: &Body,
         params: &SimulationParams,
         tree: &QuadTree<QuadTreeCell>,
-        extra: &ExtraParams
+        extra: &BodiesInfo
     ) -> impl Iterator<Item = (Vec2, Vec2)> {
         tree.get_interactions(extra, body.position, params.theta / extra.size.magnitude())
             .flat_map(|(cell, belongs_to_cell)| {
@@ -99,7 +99,7 @@ impl Simulator {
                 if belongs_to_cell {
                     cell_position *= cell_mass;
                     cell_mass -= body.mass;
-                    if cell_mass <= f32::EPSILON {
+                    if cell_mass < f32::EPSILON {
                         return None;
                     }
 
@@ -120,7 +120,7 @@ impl Simulator {
             })
     }
 
-    fn kick(&mut self, tree: &QuadTree<QuadTreeCell>, extra: &ExtraParams) {
+    fn kick(&mut self, tree: &QuadTree<QuadTreeCell>, extra: &BodiesInfo) {
         for body in self.bodies.iter_mut() {
             let force = Self::kick_force_iter(body, &self.params, tree, extra)
                 .map(|(_, f)| f).sum::<Vec2>();
@@ -137,7 +137,7 @@ impl Simulator {
         }
     }
 
-    fn drift(&mut self, _: &ExtraParams) {
+    fn drift(&mut self) {
         for body in self.bodies.iter_mut() {
             // x <= x + \Delta_t * v
             body.position += self.params.time_step * body.velocity;
@@ -150,8 +150,8 @@ impl<T> QuadTree<T> {
         where T: Default + Clone
     {
         // max depth
-        if depth > QuadTreeUtils::MAX_DEPTH {
-            depth = QuadTreeUtils::MAX_DEPTH;
+        if depth > QuadTreeUtils::MAX_DEPTH_CPU {
+            depth = QuadTreeUtils::MAX_DEPTH_CPU;
         }
 
         Self {
@@ -176,8 +176,8 @@ impl<T> QuadTree<T> {
 }
 
 impl QuadTree<QuadTreeCell> {
-    pub fn get_interactions(&self, extra: &ExtraParams, position: Vec2, theta: f32) -> impl Iterator<Item = (&QuadTreeCell, bool)> {
-        QuadTreeIterator::new(self, extra, position, theta)
+    pub fn get_interactions(&self, info: &BodiesInfo, position: Vec2, theta: f32) -> impl Iterator<Item = (&QuadTreeCell, bool)> {
+        QuadTreeIterator::new(self, info, position, theta)
     }
 }
 
@@ -193,7 +193,7 @@ struct QuadTreeIteratorVisitStack {
 
 impl QuadTreeIteratorVisitStack {
     fn new() -> Self {
-        let mut visit_stack = Vec::with_capacity(QuadTreeUtils::MAX_DEPTH);
+        let mut visit_stack = Vec::with_capacity(QuadTreeUtils::MAX_DEPTH_CPU);
         visit_stack.push((0, 1));
 
         Self { visit_stack }
@@ -231,14 +231,14 @@ struct QuadTreeIterator<'a, T> {
 }
 
 impl<'a, T> QuadTreeIterator<'a, T> {
-    pub fn new(quad_tree: &'a QuadTree<T>, extra: &ExtraParams, position: Vec2, theta: f32) -> Self {
+    pub fn new(quad_tree: &'a QuadTree<T>, info: &BodiesInfo, position: Vec2, theta: f32) -> Self {
         Self {
             position,
             theta,
             quad_tree,
             visit_stack: QuadTreeIteratorVisitStack::new(),
             nearest_cells: (0 ..= quad_tree.depth).map(|depth|
-                QuadTreeUtils::nearest_cell_at_layer(depth, extra.normalize(position))
+                QuadTreeUtils::nearest_cell_at_layer(depth, info.normalize(position))
             ).collect()
         }
     }
@@ -295,127 +295,8 @@ impl<'a> Iterator for QuadTreeIterator<'a, QuadTreeCell> {
     }
 }
 
-pub struct QuadTreeUtils;
-
-impl QuadTreeUtils {
-    pub const MAX_DEPTH: usize = 10;
-
-    /// Number of cells for a tree of the given `depth`.
-    #[inline(always)]
-    pub fn tree_size(depth: usize) -> usize {
-        Self::layer_end(depth)
-    }
-
-    /// Number of cells at the given `depth`.
-    #[inline(always)]
-    pub fn layer_size(depth: usize) -> usize {
-        1 << (2 * depth)
-    }
-
-    /// Number of cells per dimension at given `depth`:
-    /// `layer_dim(x) * layer_dim(x) == layer_size(x)`
-    #[inline(always)]
-    pub fn layer_dim(depth: usize) -> usize {
-        1 << depth
-    }
-
-    /// Width of one cell at the given `depth`.
-    #[inline(always)]
-    pub fn layer_width(depth: usize) -> f32 {
-        1.0 / Self::layer_dim(depth) as f32
-    }
-
-    /// Start offset of the given layer in the whole array.
-    #[inline(always)]
-    pub fn layer_start(depth: usize) -> usize {
-        let mut size = 0;
-        let mut tmp = 1;
-        for _ in 0..depth {
-            size += tmp;
-            tmp *= 4;
-        }
-
-        size
-    }
-
-    /// End (excluded) offset of the given layer in the whole array.
-    #[inline(always)]
-    pub fn layer_end(depth: usize) -> usize {
-        Self::layer_start(depth + 1)
-    }
-
-    /// Relative nearest cell to `normalized_pos` at `depth`.
-    #[inline(always)]
-    pub fn nearest_cell_at_layer(depth: usize, normalized_pos: Vec2) -> usize {
-        let mut out = 0;
-        let mut layer_width = QuadTreeUtils::layer_width(1);
-        let mut layer_dim = QuadTreeUtils::layer_dim(1) as f32;
-        let mut pos = normalized_pos;
-        for _ in 0 .. depth {
-            let cell = Self::nearest_cell_in_layer(pos * layer_dim);
-            out = Self::first_position_at_next_layer(out) + cell;
-            pos -= Self::position_in_layer(cell) * layer_width;
-            layer_dim *= 2.0;
-            layer_width /= 2.0;
-        }
-
-        out
-    }
-
-    #[inline(always)]
-    /// Inverse of `nearest_cell_in_layer`
-    pub fn nearest_cell_in_layer(pos: Vec2) -> usize {
-        if pos.x <= 1.0 {
-            if pos.y <= 1.0 {
-                0
-            } else {
-                1
-            }
-        } else {
-            if pos.y <= 1.0 {
-                2
-            } else {
-                3
-            }
-        }
-    }
-
-    /// Nearest cell position to relative cell of `index` at `depth`.
-    #[inline(always)]
-    pub fn position_at_layer(depth: usize, index: usize) -> Vec2 {
-        let mut out = Vec2::zeros();
-        let mut curr_idx = index;
-        let mut curr_size = Self::layer_width(depth);
-        for _ in 0 .. depth {
-            out += Self::position_in_layer(curr_idx % 4) * curr_size;
-            curr_size *= 2.0;
-            curr_idx = curr_idx / 4;
-        }
-
-        out
-    }
-
-    #[inline(always)]
-    /// Inverse of `nearest_cell_in_layer`
-    pub fn position_in_layer(index: usize) -> Vec2 {
-        const OFFSETS: [Vec2; 4] = [
-            Vec2::new(0.0, 0.0),
-            Vec2::new(0.0, 1.0),
-            Vec2::new(1.0, 0.0),
-            Vec2::new(1.0, 1.0),
-        ];
-
-        OFFSETS[index]
-    }
-
-    #[inline(always)]
-    pub fn first_position_at_next_layer(index: usize) -> usize {
-        index * 4
-    }
-}
-
-impl ExtraParams {
-    pub fn from_bodies(bodies: &[Body]) -> ExtraParams {
+impl BodiesInfo {
+    pub fn new(bodies: &[Body]) -> BodiesInfo {
         let mut min = Vec2::new(f32::INFINITY, f32::INFINITY);
         let mut max = Vec2::new(f32::NEG_INFINITY, f32::NEG_INFINITY);
 
@@ -430,7 +311,7 @@ impl ExtraParams {
         max += Vec2::new(delta, delta);
         min -= Vec2::new(delta, delta);
 
-        ExtraParams {
+        BodiesInfo {
             offset: min,
             size: max - min,
             min_distance: 1.0,

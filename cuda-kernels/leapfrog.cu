@@ -8,13 +8,13 @@ __device__ vec2f __cuda_leapfrog_force(
     struct bodies bodies,
     struct quadtree quadtree,
     struct params params,
-    struct bodies_info info,
+    struct normalization_data info,
     u64 body_id
 ) {
     struct visit_result result;
     vec2f total_force = __vec2f_zero();
 
-    float theta = params.theta / __vec2f_magnitude(info.size);
+    float theta = params.theta / __vec2f_magnitude(*info.size);
 
     struct quadtree_iter iter =
         __cuda_quadtree_iter_new(
@@ -67,7 +67,7 @@ __global__ void __cuda_leapfrog_kick(
     struct bodies bodies,
     struct quadtree quadtree,
     struct params params,
-    struct bodies_info info
+    struct normalization_data info
 ) {
     for (u64 i = __thread_body_start(bodies.count); i < __thread_body_end(bodies.count); i++) {
         float mass = bodies.mass[i];
@@ -112,7 +112,7 @@ cudaError_t cuda_leapfrog_kick(
     struct bodies bodies,
     struct quadtree quadtree,
     struct params params,
-    struct bodies_info info,
+    struct normalization_data info,
     u64 num_blocks,
     u64 num_threads
 ) {

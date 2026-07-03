@@ -40,7 +40,7 @@ __global__ void __cuda_compute_bodies_info(
 }
 
 __global__ void __cuda_reduce_block_bodies_info(
-    struct bodies_info info,
+    struct normalization_data info,
     vec2f *block_min,
     vec2f *block_max,
     u64 num_blocks
@@ -61,15 +61,15 @@ __global__ void __cuda_reduce_block_bodies_info(
     global_max.x += 10.0f;
     global_max.y += 10.0f;
 
-    info.offset = global_min;
-    info.size = __vec2f_sub(global_max, global_min);
+    *(info.offset) = global_min;
+    *(info.size) = __vec2f_sub(global_max, global_min);
 }
 
 extern "C" {
 
-cudaError_t cuda_compute_bodies_info(
+cudaError_t cuda_compute_normalization_data(
     struct bodies bodies,
-    struct bodies_info info,
+    struct normalization_data info,
     u64 num_blocks,
     u64 num_threads
 ) {

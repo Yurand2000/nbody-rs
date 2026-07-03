@@ -9,7 +9,7 @@ __device__ void combine_cell_from_layer_below(float* mass, vec2f* mass_pos, u64 
 __global__ void __cuda_quadtree_last_layer(
     struct bodies bodies,
     struct quadtree quadtree,
-    struct bodies_info info
+    struct normalization_data info
 ) {
     // Helper variables
     u64 layer_last = quadtree.depth - 1;
@@ -18,7 +18,7 @@ __global__ void __cuda_quadtree_last_layer(
     // #### Process all bodies
     u64 offset = __layer_start(layer_last);
     for (u64 i = __thread_body_start(bodies.count); i < __thread_body_end(bodies.count); i++) {
-        u64 idx = __nearest_cell_at_layer(layer_last, __normalize_pos(bodies.position[i], &info));
+        u64 idx = __nearest_cell_at_layer(layer_last, __normalize_pos(bodies.position[i], info));
 
         atomicAdd(&quadtree.mass[offset + idx], bodies.mass[i]);
         atomicAdd(&quadtree.center_of_mass[offset + idx].x, bodies.position[i].x * bodies.mass[i]);
@@ -110,7 +110,7 @@ cudaError_t zero_quadtree(
 cudaError_t cuda_quadtree_build(
     struct bodies bodies,
     struct quadtree quadtree,
-    struct bodies_info info,
+    struct normalization_data info,
     u64 num_blocks,
     u64 num_threads
 ) {

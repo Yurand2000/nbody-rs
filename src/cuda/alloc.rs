@@ -19,8 +19,8 @@ impl<T> CudaVec<T> {
         self.size
     }
 
-    pub fn copy_in(&mut self, data: &[T]) -> CudaResult<()> {
-        if self.size != data.len() {
+    pub fn copy_in(&mut self, data: &[T], offset: usize) -> CudaResult<()> {
+        if self.size < offset + data.len() {
             return Err(CudaError::CopyIn());
         }
 
@@ -28,7 +28,7 @@ impl<T> CudaVec<T> {
             cudaMemcpy(
                 self.ptr.cast(),
                 data.as_ptr() as *const std::ffi::c_void,
-                self.size,
+                offset + data.len(),
                 CUDA_MEMCPY_HOST_TO_DEVICE,
             )
         };
@@ -36,8 +36,12 @@ impl<T> CudaVec<T> {
         Cuda::make_result((), err)
     }
 
-    pub fn copy_out(&self, data: &mut [T]) -> CudaResult<()> {
-        if self.size != data.len() {
+    pub fn copy_in_single(&mut self, data: &T, offset: usize) -> CudaResult<()> {
+        self.copy_in(std::slice::from_ref(data), offset)
+    }
+
+    pub fn copy_out(&self, data: &mut [T], offset: usize) -> CudaResult<()> {
+        if self.size < offset + data.len() {
             return Err(CudaError::CopyOut());
         }
 
@@ -45,12 +49,16 @@ impl<T> CudaVec<T> {
             cudaMemcpy(
                 data.as_mut_ptr() as *mut std::ffi::c_void,
                 self.ptr.cast_const().cast(),
-                self.size,
+                offset + data.len(),
                 CUDA_MEMCPY_DEVICE_TO_HOST,
             )
         };
 
         Cuda::make_result((), err)
+    }
+
+    pub fn copy_out_single(&self, data: &mut T, offset: usize) -> CudaResult<()> {
+        self.copy_out(std::slice::from_mut(data), 0)
     }
 
     pub unsafe fn get_ptr(&self) -> *const T {
@@ -78,11 +86,11 @@ impl<T> CudaCell<T> {
     }
 
     pub fn write(&mut self, data: &T) -> CudaResult<()> {
-        self.cell.copy_in(std::slice::from_ref(data))
+        self.cell.copy_in_single(data, 0)
     }
 
     pub fn read(&self, data: &mut T) -> CudaResult<()> {
-        self.cell.copy_out(std::slice::from_mut(data))
+        self.cell.copy_out_single(data, 0)
     }
 
     pub unsafe fn get_ptr(&self) -> *const T {

@@ -1,6 +1,7 @@
 use std::f32;
 use bevy::{input::mouse::MouseWheel, prelude::*};
 use nbody_rs::*;
+use nbody_rs::sim::{Simulator as _, SimulatorExt as _};
 use rand::RngExt;
 
 #[derive(Resource)]
@@ -37,14 +38,6 @@ fn setup(
         force_material: materials.add(Color::linear_rgba(1.0, 0.2, 1.0, 1.0)),
     });
 
-    commands.insert_resource(sim::Simulator::new(
-        sim::SimulationParams {
-            time_step: 0.1,
-            typ: sim::SimulationType::SingleCore,
-            theta: 1.0,
-            grav_constant: 0.667430,
-        }));
-
     commands.insert_resource(Time::<Fixed>::from_hz(30.0));
 }
 
@@ -54,12 +47,12 @@ fn new_body(
     vel: Vec2,
     render_data: &MyAssetData,
     commands: &mut Commands,
-    nbody: &mut sim::Simulator,
+    nbody: &mut sim::MultiSimulator,
 ) {
     let body = sim::Body {
         mass,
-        position: sim::Vec2::new(pos.x, pos.y),
-        velocity: sim::Vec2::new(vel.x, vel.y),
+        position: sim::Vec2f::new(pos.x, pos.y),
+        velocity: sim::Vec2f::new(vel.x, vel.y),
     };
 
     let id = BodyId(nbody.insert_body(body));
@@ -77,9 +70,9 @@ fn new_body(
 fn orbit_scenario(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: ResMut<sim::Simulator>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
 ) {
-    let g = nbody.params.grav_constant;
+    let g = nbody.get_params().g_constant;
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(17);
 
     let mut new_body = |mass, pos, vel|
@@ -140,7 +133,7 @@ fn orbit_scenario(
 fn setup_scene(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: ResMut<sim::Simulator>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
 ) {
     // let mut new_body = |mass, posx, posy, velx, vely|
     //     new_body(mass, Vec2::new(posx, posy), Vec2::new(velx, vely), &render_data, &mut commands, &mut nbody);
@@ -181,10 +174,15 @@ fn setup_scene(
 }
 
 fn update(
-    mut nbody: ResMut<sim::Simulator>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
     bodies: Query<(&mut Transform, &BodyId)>,
 ) {
+    let start = std::time::Instant::now();
+
     nbody.step();
+
+    let total = std::time::Instant::now() - start;
+    println!("step duration: {total:?}");
 
     for (mut transform, id) in bodies {
         let body = nbody.get_body(id.0);
@@ -245,31 +243,35 @@ fn process_inputs(
 
 fn process_inputs_simulate(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
-    mut nbody: ResMut<sim::Simulator>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
 ) {
+    let mut params = nbody.get_params();
+
     if keys.pressed(bevy::input::keyboard::Key::Character("+".into())) &&
        !keys.pressed(bevy::input::keyboard::Key::Shift)
     {
-        nbody.params.time_step *= 1.05;
+        params.time_step *= 1.05;
     }
 
     if keys.pressed(bevy::input::keyboard::Key::Character("-".into())) &&
        !keys.pressed(bevy::input::keyboard::Key::Shift)
     {
-        nbody.params.time_step /= 1.05;
+        params.time_step /= 1.05;
     }
 
     if keys.just_pressed(bevy::input::keyboard::Key::Character("+".into())) &&
        keys.pressed(bevy::input::keyboard::Key::Shift)
     {
-        nbody.params.theta *= 2.0;
+        params.theta *= 2.0;
     }
 
     if keys.just_pressed(bevy::input::keyboard::Key::Character("-".into())) &&
        keys.pressed(bevy::input::keyboard::Key::Shift)
     {
-        nbody.params.theta /= 2.0;
+        params.theta /= 2.0;
     }
+
+    nbody.set_params(params);
 }
 
 fn process_inputs_debug(
@@ -325,7 +327,7 @@ fn process_inputs_debug_quadtree(
 fn process_inputs_debug_force_single(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
     mut debug_data: ResMut<ForceSingleDebugState>,
-    nbody: Res<sim::Simulator>,
+    nbody: NonSend<sim::MultiSimulator>,
     force_single_items: Query<(&mut Visibility, &ForceSingleTag)>,
 ) {
     if keys.pressed(bevy::input::keyboard::Key::ArrowUp) {
@@ -369,11 +371,11 @@ pub struct QuadTreeItem {
 fn draw_quadtree(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    nbody: Res<sim::Simulator>,
+    nbody: NonSend<sim::MultiSimulator>,
 ) {
     use sim::QuadTreeUtils;
 
-    let (size_params, tree) = nbody.get_quadtree();
+    let Some(tree) = nbody.get_quadtree() else { return; };
     let max_vis_depth = tree.depth.min(8);
 
     commands.insert_resource(QuadtreeDebugState {
@@ -392,13 +394,13 @@ fn draw_quadtree(
         let cell_size = QuadTreeUtils::layer_width(depth);
         for (idx, cell) in cells.iter().enumerate() {
             let cell_pos =
-                size_params.invert_normalize(
+                tree.norm.invert_normalize(
                     QuadTreeUtils::position_at_layer(depth, idx)
-                    + sim::Vec2::new(QuadTreeUtils::layer_width(depth + 1), QuadTreeUtils::layer_width(depth + 1))
+                    + sim::Vec2f::new(QuadTreeUtils::layer_width(depth + 1), QuadTreeUtils::layer_width(depth + 1))
                 );
 
-            let cell_size = size_params.invert_normalize_size(
-                sim::Vec2::new(cell_size, cell_size)
+            let cell_size = tree.norm.invert_normalize_size(
+                sim::Vec2f::new(cell_size, cell_size)
             );
 
             let text_size = (2.0 / (depth + 1) as f32).min(1.0);
@@ -448,10 +450,10 @@ pub struct ForceTag;
 fn draw_forces(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    nbody: Res<sim::Simulator>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
 ) {
-    let (size_params, tree) = nbody.get_quadtree();
-    let forces: Vec<_> = nbody.get_forces(&tree, &size_params).map(|iter| iter.map(|(_, f)| f).sum::<sim::Vec2>()).collect();
+    let Some(tree) = nbody.get_quadtree() else { return; };
+    let Some(forces) = nbody.get_forces(&tree) else { return; };
 
     let segment = &render_data.segment_mesh;
     let mat = &render_data.force_material;
@@ -460,6 +462,7 @@ fn draw_forces(
     let max_force = *forces.iter().map(|f| ordered_float::OrderedFloat(f.magnitude())).max().unwrap();
     let diff_force = max_force - min_force;
 
+    nbody.pull_updates();
     for (body, force) in nbody.get_bodies().iter().zip(forces.into_iter()) {
         let magnitude = 20.0 * (force.magnitude() - min_force) / diff_force + 10.0;
 
@@ -494,25 +497,27 @@ pub struct ForceSingleTag { body_id: usize }
 fn draw_force_single(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    nbody: Res<sim::Simulator>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
 ) {
     commands.insert_resource(ForceSingleDebugState {
         curr_body: 0,
     });
 
-    let (size_params, tree) = nbody.get_quadtree();
+    let Some(tree) = nbody.get_quadtree() else { return; };
 
     let circle = &render_data.circle_mesh;
     let segment = &render_data.segment_mesh;
     let red = &render_data.red_material;
     let mat = &render_data.force_material;
-    for (body_id, (body, forces)) in nbody.get_bodies().iter()
-        .zip(nbody.get_forces(&tree, &size_params)).enumerate()
-    {
-        let forces: Vec<_> = forces.collect();
 
-        let min_force = *forces.iter().map(|(_, f)| ordered_float::OrderedFloat(f.magnitude())).min().unwrap();
-        let max_force = *forces.iter().map(|(_, f)| ordered_float::OrderedFloat(f.magnitude())).max().unwrap();
+    nbody.pull_updates();
+    for (body_id, body, forces) in nbody.get_bodies().iter().enumerate()
+        .map(|(body_id, body)| (body_id, body, nbody.get_body_forces(&tree, body_id)))
+    {
+        let Some(forces) = forces else { continue; };
+
+        let min_force = *forces.iter().map(|f| ordered_float::OrderedFloat(f.force.magnitude())).min().unwrap();
+        let max_force = *forces.iter().map(|f| ordered_float::OrderedFloat(f.force.magnitude())).max().unwrap();
         let diff_force = max_force - min_force;
 
         let scale = body.mass.sqrt() * 5.0;
@@ -525,14 +530,14 @@ fn draw_force_single(
             ForceSingleTag { body_id },
         ));
 
-        for (center, force) in forces.into_iter() {
+        for sim::SingleBodyForce { com, force } in forces.into_iter() {
             let magnitude = (force.magnitude() - min_force) / diff_force;
 
             commands.spawn((
                 Visibility::Visible,
                 Mesh2d(segment.to_owned()),
                 MeshMaterial2d(mat.to_owned()),
-                Transform::from_translation([center.x, center.y, 0.0].into()),
+                Transform::from_translation([com.x, com.y, 0.0].into()),
                 ForceSingleTag { body_id },
             ))
             .with_child((
@@ -562,6 +567,9 @@ fn destroy_force_single(
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_non_send_resource(sim::MultiSimulator::new_cuda(
+            sim::SimulationParams { time_step: 0.1, theta: 1.0, g_constant: 0.667430 }
+        ))
         .init_state::<render::SimState>()
         .add_sub_state::<render::DebugState>()
         .add_systems(Startup, (setup, setup_scene).chain())

@@ -8,6 +8,7 @@ pub enum CudaError {
     Cuda(__CudaError),
     CopyIn(),
     CopyOut(),
+    QuadtreeDepth(),
 }
 
 impl std::fmt::Debug for __CudaError {

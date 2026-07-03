@@ -34,7 +34,7 @@ fn compile_cuda_kernels() {
                         "-I",
                         &input_dir,
                         "--compiler-options=-fPIC",
-                        "-dc",
+                        "-rdc=true",
                     ])
                     .status()
                     .expect("failed to run nvcc");
@@ -46,6 +46,22 @@ fn compile_cuda_kernels() {
                 out_file
             })
             .collect::<Vec<_>>();
+
+    let device_link_file = {
+        let out_file = format!("{}/dlink.o", out_dir);
+        let status = Command::new("nvcc")
+            .arg("-dlink")
+            .args(obj_files.iter())
+            .args(["-o", &out_file, "-lcudart"])
+            .status()
+            .expect("failed to run nvcc");
+
+        if !status.success() {
+            panic!("nvcc failed for {}", out_file);
+        }
+
+        out_file
+    };
 
     // Pack into a static library
     let status = Command::new("ar")
@@ -62,6 +78,7 @@ fn compile_cuda_kernels() {
 
     println!("cargo:rustc-link-search=native={}", out_dir);
     println!("cargo:rustc-link-search=native=/opt/cuda/lib64");
+    println!("cargo:rustc-link-arg={}", device_link_file);
     println!("cargo:rustc-link-lib=static=kernels");
     println!("cargo:rustc-link-lib=dylib=cudart");
     println!("cargo:rustc-link-lib=dylib=stdc++");

@@ -4,6 +4,8 @@
 #include "common.h"
 #include "quadtree-iter.h"
 
+extern "C" {
+
 __device__ bool __cuda_quadtree_iter_next(
     struct visit_result *result,
     struct quadtree_iter *iter,
@@ -54,7 +56,7 @@ __device__ bool __cuda_quadtree_iter_next(
 __device__ struct quadtree_iter __cuda_quadtree_iter_new(
     struct quadtree quadtree,
     struct params params,
-    struct bodies_info info,
+    struct normalization_data info,
     vec2f body_position
 ) {
     struct quadtree_iter iter;
@@ -70,7 +72,7 @@ __device__ struct quadtree_iter __cuda_quadtree_iter_new(
     // Initialize Nearest Cells
     for (u64 layer = 0; layer < quadtree.depth - 1; layer++) {
         iter.nearest_cells[layer] =
-            __nearest_cell_at_layer(layer, __normalize_pos(body_position, &info));
+            __nearest_cell_at_layer(layer, __normalize_pos(body_position, info));
     }
 
     // Set the current stack top at the stack base
@@ -84,4 +86,6 @@ __device__ void __cuda_quadtree_iter_free(
 ) {
     free(iter.visit_stack_base);
     free(iter.nearest_cells);
+}
+
 }

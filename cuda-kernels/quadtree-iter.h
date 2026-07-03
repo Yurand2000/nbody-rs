@@ -3,6 +3,8 @@
 
 #include "common.h"
 
+extern "C" {
+
 struct visit_result {
     u64 cell;
     bool belongs_to_cell;
@@ -30,12 +32,14 @@ __device__ bool __cuda_quadtree_iter_next(
 __device__ struct quadtree_iter __cuda_quadtree_iter_new(
     struct quadtree quadtree,
     struct params params,
-    struct bodies_info info,
+    struct normalization_data info,
     vec2f body_position
 );
 
 __device__ void __cuda_quadtree_iter_free(
     struct quadtree_iter iter
 );
+
+}
 
 #endif

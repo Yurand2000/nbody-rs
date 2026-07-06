@@ -1,6 +1,6 @@
 use super::*;
 
-mod ffi;
+pub mod ffi;
 
 pub struct CudaBodies {
     pub mass: CudaVec<ffi::float>,
@@ -51,7 +51,7 @@ pub fn quadtree_build(
     bodies: &mut CudaBodies,
     num_bodies: usize,
     quadtree: &mut CudaQuadTree,
-    info: &mut CudaNormalizationData,
+    info: &CudaNormalizationData,
     num_blocks: u64,
     num_threads: u64,
 ) -> CudaResult<()> {
@@ -65,8 +65,8 @@ pub fn leapfrog_kick(
     bodies: &mut CudaBodies,
     num_bodies: usize,
     quadtree: &mut CudaQuadTree,
-    params: &mut CudaParams,
-    info: &mut CudaNormalizationData,
+    params: &CudaParams,
+    info: &CudaNormalizationData,
     num_blocks: u64,
     num_threads: u64
 ) -> CudaResult<()> {
@@ -76,10 +76,26 @@ pub fn leapfrog_kick(
     Cuda::make_result((), err)
 }
 
+pub fn leapfrog_kick_debug(
+    bodies: &CudaBodies,
+    num_bodies: usize,
+    quadtree: &CudaQuadTree,
+    params: &CudaParams,
+    info: &CudaNormalizationData,
+    forces: &mut CudaVec<ffi::vec2f>,
+    num_blocks: u64,
+    num_threads: u64
+) -> CudaResult<()> {
+    let err =
+        unsafe { ffi::cuda_leapfrog_kick_debug((bodies, num_bodies).into(), quadtree.into(), params.into(), info.into(), forces.get_ptr_mut(), num_blocks, num_threads) };
+
+    Cuda::make_result((), err)
+}
+
 pub fn leapfrog_drift(
     bodies: &mut CudaBodies,
     num_bodies: usize,
-    params: &mut CudaParams,
+    params: &CudaParams,
     num_blocks: u64,
     num_threads: u64,
 ) -> CudaResult<()> {
@@ -121,6 +137,24 @@ impl CudaBodies {
             velocity: velocity.into(),
         })
     }
+
+    pub fn read_bodies(&self, bodies: &mut Vec<crate::sim::Body>) -> CudaResult<()> {
+        let mut mass = vec![0.0; bodies.len()];
+        let mut position = vec![ffi::vec2f::default(); bodies.len()];
+        let mut velocity = vec![ffi::vec2f::default(); bodies.len()];
+
+        self.mass.copy_out(&mut mass, 0)?;
+        self.position.copy_out(&mut position, 0)?;
+        self.velocity.copy_out(&mut velocity, 0)?;
+
+        for (i, body) in bodies.iter_mut().enumerate() {
+            body.mass = mass[i];
+            body.position = position[i].into();
+            body.velocity = velocity[i].into();
+        }
+
+        Ok(())
+    }
 }
 
 impl Into<ffi::bodies> for (&mut CudaBodies, usize) {
@@ -132,6 +166,21 @@ impl Into<ffi::bodies> for (&mut CudaBodies, usize) {
                 mass: bodies.mass.get_ptr_mut(),
                 position: bodies.position.get_ptr_mut(),
                 velocity: bodies.velocity.get_ptr_mut(),
+                count: num_bodies as u64,
+            }
+        }
+    }
+}
+
+impl Into<ffi::bodies> for (&CudaBodies, usize) {
+    fn into(self) -> ffi::bodies {
+        let (bodies, num_bodies) = self;
+
+        unsafe {
+            ffi::bodies {
+                mass: bodies.mass.get_ptr().cast_mut(),
+                position: bodies.position.get_ptr().cast_mut(),
+                velocity: bodies.velocity.get_ptr().cast_mut(),
                 count: num_bodies as u64,
             }
         }
@@ -153,6 +202,17 @@ impl Into<ffi::normalization_data> for &mut CudaNormalizationData {
             ffi::normalization_data {
                 offset: self.offset.get_ptr_mut(),
                 size: self.size.get_ptr_mut(),
+            }
+        }
+    }
+}
+
+impl Into<ffi::normalization_data> for &CudaNormalizationData {
+    fn into(self) -> ffi::normalization_data {
+        unsafe {
+            ffi::normalization_data {
+                offset: self.offset.get_ptr().cast_mut(),
+                size: self.size.get_ptr().cast_mut(),
             }
         }
     }
@@ -187,6 +247,21 @@ impl CudaQuadTree {
             position: com.into(),
         })
     }
+
+    pub fn read_cells(&self, cells: &mut [crate::sim::QuadTreeCell]) -> CudaResult<()> {
+        let mut mass = vec![0.0; cells.len()];
+        let mut com = vec![ffi::vec2f::default(); cells.len()];
+
+        self.mass.copy_out(&mut mass, 0)?;
+        self.center_of_mass.copy_out(&mut com, 0)?;
+
+        for (i, cell) in cells.iter_mut().enumerate() {
+            cell.mass = mass[i];
+            cell.position = com[i].into();
+        }
+
+        Ok(())
+    }
 }
 
 impl Into<ffi::quadtree> for &mut CudaQuadTree {
@@ -195,6 +270,18 @@ impl Into<ffi::quadtree> for &mut CudaQuadTree {
             ffi::quadtree {
                 mass: self.mass.get_ptr_mut(),
                 center_of_mass: self.center_of_mass.get_ptr_mut(),
+                depth: self.depth as u64,
+            }
+        }
+    }
+}
+
+impl Into<ffi::quadtree> for &CudaQuadTree {
+    fn into(self) -> ffi::quadtree {
+        unsafe {
+            ffi::quadtree {
+                mass: self.mass.get_ptr().cast_mut(),
+                center_of_mass: self.center_of_mass.get_ptr().cast_mut(),
                 depth: self.depth as u64,
             }
         }
@@ -211,7 +298,7 @@ impl CudaParams {
     }
 }
 
-impl Into<ffi::params> for &mut CudaParams {
+impl Into<ffi::params> for &CudaParams {
     fn into(self) -> ffi::params {
         ffi::params {
             time_step: self.time_step,

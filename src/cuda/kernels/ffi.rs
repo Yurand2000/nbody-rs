@@ -1,6 +1,7 @@
 pub use std::ffi::c_float as float;
 
 #[repr(C)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct vec2f {
     pub x: float,
     pub y: float,
@@ -77,6 +78,16 @@ unsafe extern "C" {
         quadtree: quadtree,
         params: params,
         info: normalization_data,
+        num_blocks: u64,
+        num_threads: u64
+    ) -> crate::cuda::ffi::cudaError_t;
+
+    pub unsafe fn cuda_leapfrog_kick_debug(
+        bodies: bodies,
+        quadtree: quadtree,
+        params: params,
+        info: normalization_data,
+        forces: *mut vec2f,
         num_blocks: u64,
         num_threads: u64
     ) -> crate::cuda::ffi::cudaError_t;

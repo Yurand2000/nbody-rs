@@ -138,6 +138,10 @@ impl UpSimulator {
                 }
 
                 let diff = cell_position - body.position;
+                if diff.magnitude_squared() < f32::EPSILON {
+                    return None;
+                }
+
                 if diff.magnitude().powi(3) <= body.mass + cell_mass {
                     return None;
                 }

@@ -6,6 +6,42 @@
 
 extern "C" {
 
+__device__ void __visit_stack_push(
+    struct quadtree_iter *iter,
+    u64 current,
+    u64 max
+) {
+    iter->visit_stack[iter->stack_size] = {
+        .current = current,
+        .max = max
+    };
+    iter->stack_size += 1;
+}
+
+__device__ void __visit_stack_pop(
+    struct quadtree_iter *iter
+) {
+    iter->stack_size -= 1;
+}
+
+__device__ u64 __visit_stack_depth(
+    struct quadtree_iter *iter
+) {
+    return iter->stack_size - 1;
+}
+
+__device__ struct visit_cell *__visit_stack_top(
+    struct quadtree_iter *iter
+) {
+    return &(iter->visit_stack[iter->stack_size - 1]);
+}
+
+__device__ bool __visit_stack_is_empty(
+    struct quadtree_iter *iter
+) {
+    return iter->stack_size == 0;
+}
+
 __device__ bool __cuda_quadtree_iter_next(
     struct visit_result *result,
     struct quadtree_iter *iter,
@@ -13,19 +49,20 @@ __device__ bool __cuda_quadtree_iter_next(
     vec2f body_position,
     float theta
 ) {
-    while (iter->stack_size > 0) {
-        u64 curr_depth = iter->stack_size - 1;
-        u64 curr_cell = iter->visit_stack[curr_depth].current;
-        u64 max_cell = iter->visit_stack[curr_depth].max;
+    while (!__visit_stack_is_empty(iter)) {
+        u64 curr_depth = __visit_stack_depth(iter);
+        struct visit_cell *top = __visit_stack_top(iter);
+        u64 curr_cell = top->current;
+        u64 max_cell = top->max;
 
         if (curr_cell >= max_cell) {
             // We have already visited the whole subtree
-            iter->stack_size -= 1;
+            __visit_stack_pop(iter);
             continue;
         }
 
         // Visit current cell
-        iter->visit_stack[curr_depth].current += 1;
+        top->current += 1;
 
         u64 cell_idx = __layer_start(curr_depth) + curr_cell;
 
@@ -34,26 +71,29 @@ __device__ bool __cuda_quadtree_iter_next(
             continue;
 
         vec2f diff_position = __vec2f_sub(body_position, quadtree.center_of_mass[cell_idx]);
-        float ratio = __layer_width(curr_depth) / __vec2f_magnitude(diff_position);
-        if ((ratio < theta) || (curr_depth >= quadtree.depth)) {
+        float ratio = theta;
+        if (__vec2f_magnitude_sqr(diff_position) >= FLT_EPSILON)
+            ratio = __layer_width(curr_depth) / __vec2f_magnitude(diff_position);
+
+        if ((ratio < theta) || (curr_depth >= quadtree.depth - 1)) {
             // return current cell
             *result = {
                 .cell = cell_idx,
-                .belongs_to_cell = cell_idx == iter->nearest_cells[curr_depth]
+                .belongs_to_cell = curr_cell == iter->nearest_cells[curr_depth]
             };
             return true;
         } else {
             // visit subtree
-            iter->stack_size += 1;
-            iter->visit_stack[curr_depth+1].current = curr_cell * 4;
-            iter->visit_stack[curr_depth+1].max = curr_cell * 4 + 4;
+            __visit_stack_push(iter, curr_cell * 4, curr_cell * 4 + 4);
         }
     }
 
     return false;
 }
 
-__device__ struct quadtree_iter __cuda_quadtree_iter_new(
+__device__ struct quadtree_iter __cuda_quadtree_iter_init(
+    struct quadtree_iter iterators,
+    u64 thread_idx,
     struct quadtree quadtree,
     struct params params,
     struct normalization_data info,
@@ -62,13 +102,12 @@ __device__ struct quadtree_iter __cuda_quadtree_iter_new(
     struct quadtree_iter iter;
 
     // Initialize the iterator
-    iter.visit_stack = (struct visit_cell*) malloc(sizeof(vec2f) * (quadtree.depth + 1));
-    iter.nearest_cells = (u64*) malloc(sizeof(u64) * (quadtree.depth + 1));
+    iter.visit_stack = &iterators.visit_stack[thread_idx * (quadtree.depth + 1)];
+    iter.stack_size = 0;
+    iter.nearest_cells = &iterators.nearest_cells[thread_idx * (quadtree.depth + 1)];
 
     // Initialize Visit Stack
-    iter.visit_stack[0].current = 0;
-    iter.visit_stack[0].max = 1;
-    iter.stack_size = 1;
+    __visit_stack_push(&iter, 0, 1);
 
     // Initialize Nearest Cells
     for (u64 layer = 0; layer <= quadtree.depth; layer++) {
@@ -79,11 +118,39 @@ __device__ struct quadtree_iter __cuda_quadtree_iter_new(
     return iter;
 }
 
-__device__ void __cuda_quadtree_iter_free(
-    struct quadtree_iter iter
+cudaError_t cuda_quadtree_iter_alloc(
+    struct quadtree_iter *iterators,
+    u64 quadtree_depth,
+    u64 grid_size
 ) {
-    free(iter.visit_stack);
-    free(iter.nearest_cells);
+    cudaError_t err;
+
+    // Allocate iterators
+    err = cudaMalloc((void**)(&iterators->visit_stack), sizeof(vec2f) * grid_size * (quadtree_depth + 1));
+    if (err != cudaSuccess)
+        return err;
+
+    err = cudaMalloc((void**)(&iterators->nearest_cells), sizeof(u64) * grid_size * (quadtree_depth + 1));
+    if (err != cudaSuccess)
+        return err;
+
+    return cudaSuccess;
+}
+
+cudaError_t cuda_quadtree_iter_free(
+    struct quadtree_iter *iterators
+) {
+    cudaError_t err;
+
+    err = cudaFree(iterators->visit_stack);
+    if (err != cudaSuccess)
+        return err;
+
+    err = cudaFree(iterators->nearest_cells);
+    if (err != cudaSuccess)
+        return err;
+
+    return cudaSuccess;
 }
 
 }

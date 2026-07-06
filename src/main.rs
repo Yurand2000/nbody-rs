@@ -38,7 +38,7 @@ fn setup(
         force_material: materials.add(Color::linear_rgba(1.0, 0.2, 1.0, 1.0)),
     });
 
-    commands.insert_resource(Time::<Fixed>::from_hz(1.0));
+    commands.insert_resource(Time::<Fixed>::from_hz(60.0));
 }
 
 fn new_body(
@@ -177,19 +177,10 @@ fn update(
     mut nbody: NonSendMut<sim::MultiSimulator>,
     bodies: Query<(&mut Transform, &BodyId)>,
 ) {
-    let start = std::time::Instant::now();
-
-    nbody.step();
-
-    let total = std::time::Instant::now() - start;
-    println!("step duration: {total:?}");
-
-    let start = std::time::Instant::now();
-
+    // for _ in 0 .. 10 {
+        nbody.step();
+    // }
     nbody.pull_updates();
-
-    let total = std::time::Instant::now() - start;
-    println!("pull duration: {total:?}");
 
     for (mut transform, id) in bodies {
         let body = nbody.get_body(id.0);
@@ -575,7 +566,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_non_send_resource(sim::MultiSimulator::new_cuda(
-            sim::SimulationParams { time_step: 0.1, theta: 1.0, g_constant: 0.667430 }
+            sim::SimulationParams { time_step: 0.1, theta: 0.001, g_constant: 0.667430 }
         ))
         .init_state::<render::SimState>()
         .add_sub_state::<render::DebugState>()

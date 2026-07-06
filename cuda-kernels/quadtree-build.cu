@@ -47,8 +47,7 @@ __global__ void __cuda_quadtree_reduce_at_layer(
     vec2f *com = quadtree.center_of_mass;
 
     for (u64 c = __thread_layer_start(layer); c < __thread_layer_end(layer); c++) {
-        u64 in_layer_cell = c - __layer_start(layer);
-        u64 cn = in_layer_cell * 4 + __layer_start(layer + 1);
+        u64 cn = (c - __layer_start(layer)) * 4 + __layer_start(layer + 1);
 
         mass[c] = mass[cn] + mass[cn+1] + mass[cn+2] + mass[cn+3];
 
@@ -59,7 +58,8 @@ __global__ void __cuda_quadtree_reduce_at_layer(
             com[cn].y * mass[cn] + com[cn+1].y * mass[cn+1] +
             com[cn+2].y * mass[cn+2] + com[cn+3].y * mass[cn+3];
 
-        com[c] = __vec2f_div(com[c], mass[c]);
+        if (mass[c] > FLT_EPSILON)
+            com[c] = __vec2f_div(com[c], mass[c]);
     }
 }
 

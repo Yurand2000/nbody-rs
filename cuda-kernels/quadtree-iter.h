@@ -21,6 +21,15 @@ struct quadtree_iter {
     u64 *nearest_cells;
 };
 
+__device__ struct quadtree_iter __cuda_quadtree_iter_init(
+    struct quadtree_iter iterators,
+    u64 thread_idx,
+    struct quadtree quadtree,
+    struct params params,
+    struct normalization_data info,
+    vec2f body_position
+);
+
 __device__ bool __cuda_quadtree_iter_next(
     struct visit_result *result,
     struct quadtree_iter *iter,
@@ -29,15 +38,14 @@ __device__ bool __cuda_quadtree_iter_next(
     float theta
 );
 
-__device__ struct quadtree_iter __cuda_quadtree_iter_new(
-    struct quadtree quadtree,
-    struct params params,
-    struct normalization_data info,
-    vec2f body_position
+cudaError_t cuda_quadtree_iter_alloc(
+    struct quadtree_iter *iterators,
+    u64 quadtree_depth,
+    u64 grid_size
 );
 
-__device__ void __cuda_quadtree_iter_free(
-    struct quadtree_iter iter
+cudaError_t cuda_quadtree_iter_free(
+    struct quadtree_iter *iterators
 );
 
 }

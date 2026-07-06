@@ -56,20 +56,36 @@ inline u64 is_pow4_u64(u64 x) {
     return (idx & 1) == 0;
 }
 
+__device__ inline u64 __thread_idx() {
+    return blockDim.x * blockIdx.x + threadIdx.x;
+}
+
+__device__ inline u64 __grid_size() {
+    return blockDim.x * gridDim.x;
+}
+
 // Body indices when iterating over bodies
-__device__ inline u64 __per_thread_bodies(u64 num_bodies) {
-    return ceil_div_u64(num_bodies, gridDim.x * blockDim.x);
+__host__ __device__ inline u64 __per_thread_bodies__(u64 num_bodies, u64 num_blocks, u64 num_threads) {
+    return ceil_div_u64(num_bodies, num_blocks * num_threads);
+}
+
+__host__ __device__ inline u64 __thread_body_start__(u64 num_bodies, u64 num_blocks, u64 block_idx, u64 num_threads, u64 thread_idx) {
+    return (num_threads * block_idx + thread_idx) * __per_thread_bodies__(num_bodies, num_blocks, num_threads);
 }
 
 __device__ inline u64 __thread_body_start(u64 num_bodies) {
-    return (blockDim.x * blockIdx.x + threadIdx.x) * __per_thread_bodies(num_bodies);
+    return __thread_body_start__(num_bodies, gridDim.x, blockIdx.x, blockDim.x, threadIdx.x);
+}
+
+__host__ __device__ inline u64 __thread_body_end__(u64 num_bodies, u64 num_blocks, u64 block_idx, u64 num_threads, u64 thread_idx) {
+    return min(
+        (num_threads * block_idx + thread_idx + 1) * __per_thread_bodies__(num_bodies, num_blocks, num_threads),
+        num_bodies
+    );
 }
 
 __device__ inline u64 __thread_body_end(u64 num_bodies) {
-    return min(
-        (blockDim.x * blockIdx.x + threadIdx.x + 1) * __per_thread_bodies(num_bodies),
-        num_bodies
-    );
+    return __thread_body_end__(num_bodies, gridDim.x, blockIdx.x, blockDim.x, threadIdx.x);
 }
 
 // Cell Indies when iterating over the quadtree layers
@@ -97,16 +113,16 @@ __device__ inline u64 __layer_size(u64 depth) {
 }
 
 __device__ inline u64 __thread_layer_start(u64 depth) {
-    u64 idx = blockDim.x * blockIdx.x + threadIdx.x;
+    u64 idx = __thread_idx();
     u64 layer_size = __layer_size(depth);
-    u64 num_threads = blockDim.x * gridDim.x;
+    u64 num_threads = __grid_size();
     return __layer_start(depth) + ceil_div_u64(layer_size * idx, num_threads);
 }
 
 __device__ inline u64 __thread_layer_end(u64 depth) {
-    u64 idx = blockDim.x * blockIdx.x + threadIdx.x + 1;
+    u64 idx = __thread_idx() + 1;
     u64 layer_size = __layer_size(depth);
-    u64 num_threads = blockDim.x * gridDim.x;
+    u64 num_threads = __grid_size();
     return __layer_start(depth) + ceil_div_u64(layer_size * idx, num_threads);
 }
 

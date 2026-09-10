@@ -13,7 +13,7 @@ pub struct CUDASimulator {
 
 impl CUDASimulator {
     const MAX_NUM_BODIES: usize = 100000;
-    const QUADTREE_DEPTH: usize = 10;
+    const QUADTREE_DEPTH: usize = 8;
 
     pub fn new() -> Self {
         Self {

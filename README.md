@@ -9,7 +9,6 @@ N-Body Simulation written in Rust and CUDA.
     - Leapfrog integration
 - Computing Solutions
     - Single-Thread
-    - Multi-Thread CPU-only
     - CUDA
 
 ### General Compute Pipeline

@@ -5,7 +5,7 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-bevy = { version = "0.18.1", default-features = false, features = ["dev", "2d"]}
+bevy = { version = "0.19.1", default-features = false, features = ["dev", "2d", "ui"]}
 nalgebra = "0.35.0"
 ordered-float = "5.3.0"
 rand = "0.10.2"

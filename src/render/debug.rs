@@ -11,26 +11,26 @@ pub use force_single_debug::*;
 
 pub fn process_inputs_debug(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
-    state: Res<State<render::SimDebugState>>,
-    mut next_state: ResMut<NextState<render::SimDebugState>>,
+    state: Res<State<render::SimPausedState>>,
+    mut next_state: ResMut<NextState<render::SimPausedState>>,
 ) {
-    use render::SimDebugState::*;
+    use render::SimPausedState::*;
 
     if keys.just_pressed(bevy::input::keyboard::Key::ArrowRight) {
         match *state.get() {
-            None => next_state.set(QuadTree),
-            QuadTree => next_state.set(Forces),
-            Forces => next_state.set(ForceSingle),
-            ForceSingle => next_state.set(None),
+            Paused => next_state.set(DebugQuadTree),
+            DebugQuadTree => next_state.set(DebugForces),
+            DebugForces => next_state.set(DebugForceSingle),
+            DebugForceSingle => next_state.set(Paused),
         }
     }
 
     if keys.just_pressed(bevy::input::keyboard::Key::ArrowLeft) {
         match *state.get() {
-            None => next_state.set(ForceSingle),
-            QuadTree => next_state.set(None),
-            Forces => next_state.set(QuadTree),
-            ForceSingle => next_state.set(Forces),
+            Paused => next_state.set(DebugForceSingle),
+            DebugQuadTree => next_state.set(Paused),
+            DebugForces => next_state.set(DebugQuadTree),
+            DebugForceSingle => next_state.set(DebugForces),
         }
     }
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::input::mouse::MouseWheel;
+use crate::render::scenes::SimulationUiEntities;
 use crate::sim::Simulator as _;
 
 use super::*;
@@ -24,16 +25,21 @@ pub fn process_inputs(
     mut mouse_wheel: MessageReader<MouseWheel>,
     state: Res<State<render::SimUpdateState>>,
     mut next_state: ResMut<NextState<render::SimUpdateState>>,
+    mut next_menu_state: ResMut<NextState<render::SimMenuState>>,
     mut camera: Query<(&mut Transform, &Camera2d), With<SimEntityTag>>,
 ) {
     use render::SimUpdateState::*;
     use bevy::input::keyboard::Key::*;
 
+    if keys.just_pressed(Escape) {
+        next_menu_state.set(render::SimMenuState::EscMenu);
+        return;
+    }
+
     if keys.just_pressed(Space) {
         match *state.get() {
+            Running => next_state.set(Paused),
             Paused => next_state.set(Running),
-            Running => next_state.set(Debug),
-            Debug => next_state.set(Running),
         }
     }
 
@@ -72,6 +78,8 @@ pub fn process_inputs(
 pub fn process_inputs_simulate(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
     mut nbody: NonSendMut<sim::MultiSimulator>,
+    ui_entities: Res<SimulationUiEntities>,
+    mut text_query: Query<&mut Text>,
 ) {
     let mut params = nbody.get_params();
 
@@ -100,5 +108,24 @@ pub fn process_inputs_simulate(
     }
 
     nbody.set_params(params);
+
+    let mut time_step_text = text_query.get_mut(ui_entities.time_step_text).unwrap();
+    *time_step_text = Text::new(format!("Time Step: {:.3}", params.time_step));
+
+    let mut theta_text = text_query.get_mut(ui_entities.theta_text).unwrap();
+    *theta_text = Text::new(format!("Theta: {:.3}", params.theta));
+}
+
+pub fn update_fps_text(
+    diagnostics: Res<bevy::diagnostic::DiagnosticsStore>,
+    ui_entities: Res<SimulationUiEntities>,
+    mut text_query: Query<&mut Text>,
+) {
+    if let Some(fps) = diagnostics.get(&bevy::diagnostic::FrameTimeDiagnosticsPlugin::FPS)
+       && let Some(value) = fps.smoothed()
+    {
+        let mut fps_text = text_query.get_mut(ui_entities.fps_text).unwrap();
+        *fps_text = Text::new(format!("FPS: {:.2}", value));
+    }
 }
 

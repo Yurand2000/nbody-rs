@@ -93,6 +93,201 @@ fn orbit_scenario(
     // }
 }
 
+#[derive(Component)]
+pub struct SimulationUiTag;
+
+#[derive(Resource)]
+pub struct SimulationUiEntities {
+    pub time_step_text: Entity,
+    pub theta_text: Entity,
+    pub steps_s_text: Entity,
+    pub fps_text: Entity,
+    pub tooltip_header_text: Entity,
+    pub tooltip_text: Entity,
+    pub exit_menu_root: Entity,
+    pub exit_menu_yes_button: Entity,
+    pub exit_menu_no_button: Entity,
+}
+
+fn setup_scene_ui(
+    mut commands: Commands,
+) {
+    let mut time_step_text = Entity::PLACEHOLDER;
+    let mut theta_text = Entity::PLACEHOLDER;
+    let mut steps_s_text = Entity::PLACEHOLDER;
+    let mut fps_text = Entity::PLACEHOLDER;
+    let mut tooltip_text = Entity::PLACEHOLDER;
+    let mut tooltip_header_text = Entity::PLACEHOLDER;
+    let mut exit_menu_root = Entity::PLACEHOLDER;
+    let mut exit_menu_yes_button = Entity::PLACEHOLDER;
+    let mut exit_menu_no_button = Entity::PLACEHOLDER;
+
+    commands.spawn((
+        Node {
+            width: percent(100.0),
+            height: percent(100.0),
+            ..default()
+        },
+        SimEntityTag,
+    )).with_children(|parent| {
+        parent.spawn((
+            Node {
+                width: px(250),
+                height: auto(),
+                left: px(5),
+                top: px(5),
+                padding: UiRect::all(px(5)),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::SpaceEvenly,
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.7)),
+        )).with_children(|parent| {
+            time_step_text =
+                parent.spawn((
+                    Text::new("Time Step: NaN"),
+                    SimulationUiTag,
+                )).id();
+
+            theta_text =
+                parent.spawn((
+                    Text::new("Theta: NaN"),
+                    SimulationUiTag,
+                )).id();
+
+            steps_s_text =
+                parent.spawn((
+                    Text::new("Steps/s: NaN"),
+                    SimulationUiTag,
+                )).id();
+
+            fps_text =
+                parent.spawn((
+                    Text::new("FPS: NaN"),
+                    SimulationUiTag,
+                )).id();
+        });
+
+        parent.spawn((
+            Node {
+                min_width: px(300),
+                right: px(5),
+                top: px(5),
+                padding: UiRect::all(px(5)),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::SpaceEvenly,
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.7)),
+        )).with_children(|parent| {
+            tooltip_header_text =
+                parent.spawn((
+                    Node {
+                        width: percent(100),
+                        ..default()
+                    },
+                    Text::new("Controls"),
+                    TextLayout::justify(Justify::Center),
+                    TextFont { font_size: FontSize::Px(18.0), ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                    SimulationUiTag,
+                )).id();
+
+            tooltip_text =
+                parent.spawn((
+                    Text::new(""),
+                    TextLayout::justify(Justify::Right),
+                    TextFont { font_size: FontSize::Px(14.0), ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                    SimulationUiTag,
+                )).id();
+        });
+
+        let mut exit_menu_root_cmds =
+            parent.spawn((
+                Node {
+                    min_width: px(200),
+                    min_height: px(50),
+                    margin: UiRect::all(auto()),
+                    flex_direction: FlexDirection::Column,
+
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.7)),
+                Visibility::Hidden,
+                SimulationUiTag,
+            ));
+
+        exit_menu_root_cmds.with_children(|parent| {
+            parent.spawn((
+                Node {
+                    margin: UiRect::all(px(10)),
+                    ..default()
+                },
+                children![(
+                    Text::new("Are you sure you\nwant to quit?"),
+                    TextLayout::justify(Justify::Center),
+                )]
+            ));
+
+            parent.spawn((
+                Node {
+                    margin: UiRect::all(px(10)),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+            )).with_children(|parent| {
+                exit_menu_yes_button =
+                    parent.spawn((
+                        Node {
+                            width: px(50),
+                            ..default()
+                        },
+                        Button,
+                        Text::new("Yes"),
+                        TextLayout::justify(Justify::Center),
+                        BackgroundColor(Color::srgba(0.4, 0.4, 0.4, 0.7)),
+                        SimulationUiTag,
+                    )).id();
+
+                exit_menu_no_button =
+                    parent.spawn((
+                        Node {
+                            width: px(50),
+                            ..default()
+                        },
+                        Button,
+                        Text::new("No"),
+                        TextLayout::justify(Justify::Center),
+                        BackgroundColor(Color::srgba(0.4, 0.4, 0.4, 0.7)),
+                        SimulationUiTag,
+                    )).id();
+            });
+        });
+
+        exit_menu_root = exit_menu_root_cmds.id();
+    });
+
+    commands.insert_resource(SimulationUiEntities {
+        time_step_text,
+        theta_text,
+        steps_s_text,
+        fps_text,
+        tooltip_text,
+        tooltip_header_text,
+        exit_menu_root,
+        exit_menu_yes_button,
+        exit_menu_no_button,
+    });
+}
+
 pub fn setup_scene(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
@@ -101,6 +296,14 @@ pub fn setup_scene(
     mut next_state: ResMut<NextState<SimulationState>>,
 ) {
     println!("Spawning Scene");
+
+    commands.spawn((
+        Camera2d,
+        SimEntityTag,
+        Transform::from_scale([1.0, 1.0, 1.0].into())
+    ));
+
+    setup_scene_ui(commands.reborrow());
 
     match *scenario {
         SceneToLoad::Orbit => { orbit_scenario(commands.reborrow(), render_data, nbody); },
@@ -146,9 +349,12 @@ pub fn setup_scene(
 
 pub fn destroy_scene(
     mut commands: Commands,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
     ui_items: Query<Entity, With<SimEntityTag>>,
 ) {
     for entity in ui_items {
         commands.entity(entity).despawn();
     }
+
+    nbody.reset();
 }

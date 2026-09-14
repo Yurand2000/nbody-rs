@@ -20,6 +20,10 @@ impl Simulator for UpSimulator {
         self.params = params;
     }
 
+    fn reset(&mut self) {
+        self.bodies.clear();
+    }
+
     fn insert_body(&mut self, body: Body) -> BodyId {
         self.bodies.push(body);
         self.bodies.len() - 1

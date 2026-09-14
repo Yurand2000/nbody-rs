@@ -1,7 +1,7 @@
-use bevy::{camera::visibility::RenderLayers, prelude::*};
-use crate::{common::*, render};
+use bevy::prelude::*;
+use crate::common::*;
 
-pub struct MenuPlugin;
+pub struct MainMenuPlugin;
 
 #[derive(Resource)]
 pub struct UIData {
@@ -9,17 +9,20 @@ pub struct UIData {
     main_ui_entity: Entity,
 }
 
-impl Plugin for MenuPlugin {
+impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_sub_state::<MainMenuState>()
             .add_systems(Startup, setup_ui)
+
             .add_systems(OnEnter(MainMenuState::MainMenu), create_main_menu)
             .add_systems(Update, update_main_menu.run_if(in_state(MainMenuState::MainMenu)))
             .add_systems(OnExit(MainMenuState::MainMenu), destroy_main_menu)
+
             .add_systems(OnEnter(MainMenuState::About), create_about_menu)
             .add_systems(Update, update_about_menu.run_if(in_state(MainMenuState::About)))
             .add_systems(OnExit(MainMenuState::About), destroy_about_menu)
+
             .add_systems(OnEnter(MainMenuState::NewScene), create_new_scene_menu)
             .add_systems(Update, update_new_scene_menu.run_if(in_state(MainMenuState::NewScene)))
             .add_systems(OnExit(MainMenuState::NewScene), destroy_new_scene_menu)
@@ -29,8 +32,10 @@ impl Plugin for MenuPlugin {
 
 fn setup_ui(
     mut commands: Commands,
-    mut next_state: ResMut<NextState<MainMenuState>>,
+    mut next_state: ResMut<NextState<GameSceneState>>,
 ) {
+    use bevy::camera::visibility::RenderLayers;
+
     let camera_entity =
         commands.spawn((
             Camera2d,
@@ -58,29 +63,28 @@ fn setup_ui(
         UIData { camera_entity, main_ui_entity }
     );
 
-    next_state.set(MainMenuState::MainMenu);
+    next_state.set(GameSceneState::MainMenu);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, SubStates)]
 #[source(GameSceneState = GameSceneState::MainMenu)]
 pub enum MainMenuState {
     #[default]
-    Loading,
     MainMenu,
     NewScene,
     About,
 }
 
-const WINDOW_COLOR: Color = Color::srgba(0.2, 0.2, 0.2, 0.7);
-const WINDOW_COLOR_LIGHT: Color = Color::srgba(0.25, 0.25, 0.25, 0.7);
-const BORDER_COLOR: Color = Color::BLACK;
-const BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
-const BUTTON_COLOR_HOVER: Color = Color::srgb(0.5, 0.5, 0.5);
-const TEXT_COLOR: Color = Color::WHITE;
-const TEXT_COLOR_LIGHT: Color = Color::srgb(0.4, 0.4, 0.4);
-const TEXT_COLOR_LIGHT_HOVER: Color = Color::srgb(0.6, 0.6, 0.6);
-const CHECKBOX_TRUE: Color = Color::srgb(0.0, 1.0, 0.0);
-const CHEKCBOX_FALSE: Color = Color::NONE;
+pub const WINDOW_COLOR: Color = Color::srgba(0.2, 0.2, 0.2, 0.7);
+pub const WINDOW_COLOR_LIGHT: Color = Color::srgba(0.25, 0.25, 0.25, 0.7);
+pub const BORDER_COLOR: Color = Color::BLACK;
+pub const BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
+pub const BUTTON_COLOR_HOVER: Color = Color::srgb(0.5, 0.5, 0.5);
+pub const TEXT_COLOR: Color = Color::WHITE;
+pub const TEXT_COLOR_LIGHT: Color = Color::srgb(0.4, 0.4, 0.4);
+pub const TEXT_COLOR_LIGHT_HOVER: Color = Color::srgb(0.6, 0.6, 0.6);
+pub const CHECKBOX_TRUE: Color = Color::srgb(0.0, 1.0, 0.0);
+pub const CHECKBOX_FALSE: Color = Color::NONE;
 
 fn make_text(
     text: Text,
@@ -177,8 +181,6 @@ fn make_flex_grow(
         ..default()
     }
 }
-
-
 
 #[derive(Component)]
 pub struct MainMenuTag;

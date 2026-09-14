@@ -19,8 +19,9 @@ impl Plugin for GamePlugin {
             .init_state::<common::SimulationState>()
 
             .add_systems(Startup, game_setup)
-            .add_plugins(menu::MenuPlugin)
+            .add_plugins(menu::MainMenuPlugin)
             .add_plugins(render::SceneRenderPlugin)
+            .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
         ;
     }
 }

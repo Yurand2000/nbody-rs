@@ -2,6 +2,7 @@ use crate::cuda::kernels::*;
 use super::*;
 
 pub struct CUDASimulator {
+    cuda_params: CUDASimulatorParams,
     host_bodies: Vec<Body>,
     bodies: CudaBodies,
     host_bodies_need_update: bool,
@@ -11,12 +12,18 @@ pub struct CUDASimulator {
     params: CudaParams,
 }
 
+pub struct CUDASimulatorParams {
+    pub num_blocks: u64,
+    pub num_threads: u64,
+}
+
 impl CUDASimulator {
     const MAX_NUM_BODIES: usize = 100000;
     const QUADTREE_DEPTH: usize = 8;
 
-    pub fn new() -> Self {
+    pub fn new(params: CUDASimulatorParams) -> Self {
         Self {
+            cuda_params: params,
             host_bodies: Vec::new(),
             bodies: CudaBodies::new(Self::MAX_NUM_BODIES).unwrap(),
             host_bodies_need_update: false,
@@ -71,6 +78,11 @@ impl Simulator for CUDASimulator {
         self.params.time_step = params.time_step;
     }
 
+    fn reset(&mut self) {
+        self.host_bodies.clear();
+        self.bodies_need_update = true;
+    }
+
     fn insert_body(&mut self, body: Body) -> BodyId {
         let last = self.host_bodies.len();
         self.host_bodies.push(body);
@@ -79,8 +91,8 @@ impl Simulator for CUDASimulator {
     }
 
     fn step(&mut self) {
-        let num_blocks = 16;
-        let num_threads = 256;
+        let num_blocks = self.cuda_params.num_blocks;
+        let num_threads = self.cuda_params.num_threads;
 
         // Upload bodies if the user inserted some
         self.upload_bodies();
@@ -94,12 +106,12 @@ impl Simulator for CUDASimulator {
         zero_quadtree(&mut self.quadtree).unwrap();
         quadtree_build(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.norm_data, num_blocks, num_threads).unwrap();
 
-        crate::cuda::Cuda::device_synchronize().unwrap();
+        // crate::cuda::Cuda::device_synchronize().unwrap();
 
         // First kick
         leapfrog_kick(&mut self.bodies, self.host_bodies.len(), &mut self.quadtree, &mut self.params, &mut self.norm_data, num_blocks, num_threads).unwrap();
 
-        crate::cuda::Cuda::device_synchronize().unwrap();
+        // crate::cuda::Cuda::device_synchronize().unwrap();
 
         // // Drift
         leapfrog_drift(&mut self.bodies, self.host_bodies.len(), &mut self.params, num_blocks, num_threads).unwrap();

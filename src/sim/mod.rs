@@ -5,6 +5,8 @@ pub mod quadtree;
 
 pub use quadtree::*;
 
+use crate::sim::cuda_simulation::CUDASimulatorParams;
+
 pub type Vec2f = nalgebra::Vector2<f32>;
 
 pub type BodyId = usize;
@@ -25,6 +27,7 @@ pub struct SimulationParams {
 pub trait Simulator {
     fn get_params(&self) -> SimulationParams;
     fn set_params(&mut self, params: SimulationParams);
+    fn reset(&mut self);
     fn insert_body(&mut self, body: Body) -> BodyId;
     fn step(&mut self);
     fn pull_updates(&mut self);
@@ -53,8 +56,8 @@ impl MultiSimulator {
         Self::UpSimulator(up_simulation::UpSimulator::new(params))
     }
 
-    pub fn new_cuda(params: SimulationParams) -> Self {
-        let mut sim = Self::CUDASimulator(cuda_simulation::CUDASimulator::new());
+    pub fn new_cuda(params: SimulationParams, cuda_params: CUDASimulatorParams) -> Self {
+        let mut sim = Self::CUDASimulator(cuda_simulation::CUDASimulator::new(cuda_params));
 
         sim.set_params(params);
         sim
@@ -77,6 +80,15 @@ impl Simulator for MultiSimulator {
         match self {
             UpSimulator(sim) => sim.set_params(params),
             CUDASimulator(sim) => sim.set_params(params),
+        }
+    }
+
+    fn reset(&mut self) {
+        use MultiSimulator::*;
+
+        match self {
+            UpSimulator(sim) => sim.reset(),
+            CUDASimulator(sim) => sim.reset(),
         }
     }
 

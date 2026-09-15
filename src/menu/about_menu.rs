@@ -33,34 +33,14 @@ pub fn create_about_menu(
                         None,
                     )],
                 ),
-                (
-                    Button,
-                    Node {
-                        border: UiRect::axes(px(20), px(10)),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    children![ make_text(
-                        Text::new("Press ESC to go back"),
-                        Some(FontSize::Px(14.0)),
-                        Some(TEXT_COLOR_LIGHT),
-                    )],
-                ),
+                make_text_button("Press ESC to go back"),
             ],
         ));
     });
 }
 
 pub fn update_about_menu(
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &Children,
-        ),
-        Changed<Interaction>
-    >,
-    mut text_query: Query<&mut TextColor>,
+    mut interaction_query: Query<&Interaction , Changed<Interaction>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<MainMenuState>>,
 ) {
@@ -68,20 +48,13 @@ pub fn update_about_menu(
         next_state.set(MainMenuState::MainMenu);
     }
 
-    let Ok((interaction, children)) = &mut interaction_query.single_mut() else { return; };
-    let mut color = text_query.get_mut(children[0]).unwrap();
+    let Ok(interaction) = &mut interaction_query.single_mut() else { return; };
 
     match *interaction {
         Interaction::Pressed => {
             next_state.set(MainMenuState::MainMenu);
-
         },
-        Interaction::Hovered => {
-            *color = TEXT_COLOR_LIGHT_HOVER.into();
-        },
-        Interaction::None => {
-            *color = TEXT_COLOR_LIGHT.into();
-        }
+        _ => (),
     }
 }
 

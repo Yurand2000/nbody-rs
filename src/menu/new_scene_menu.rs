@@ -1,14 +1,27 @@
+use crate::sim;
+
 use super::*;
 
 #[derive(Component)]
 pub struct NewSceneMenuTag;
 
 #[derive(Component)]
-pub enum NewSceneButtonType {
-    Start,
-    Back,
-    CUDAToggle,
-}
+pub struct NewSceneStartButton;
+
+#[derive(Component)]
+pub struct NewSceneBackButton;
+
+#[derive(Component)]
+pub struct NewSceneCUDAToggleButton;
+
+#[derive(Component)]
+pub struct NewSceneCUDAParamsTag;
+
+#[derive(Component)]
+pub struct NewSceneCUDABlocksInput;
+
+#[derive(Component)]
+pub struct NewSceneCUDAThreadsInput;
 
 pub fn create_new_scene_menu(
     mut commands: Commands,
@@ -43,21 +56,24 @@ pub fn create_new_scene_menu(
                             Some(FontSize::Px(24.0)),
                             None,
                         ),
-                        make_toggle_button(Text::new("CUDA Simulation")),
-                        make_radio_button((Text::new("1 CUDA Block"), TextLayout::justify(Justify::Center), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("2 CUDA Blocks"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("4 CUDA Blocks"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("8 CUDA Blocks"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("16 CUDA Blocks"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("1 CUDA Thread"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("4 CUDA Threads"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("16 CUDA Threads"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("64 CUDA Threads"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("256 CUDA Threads"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
-                        make_radio_button((Text::new("1024 CUDA Threads"), TextFont { font_size: FontSize::Px(14.0), ..default() })),
+                        (make_toggle_button(Text::new("CUDA Simulation")), NewSceneCUDAToggleButton),
+                        (
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                align_items: AlignItems::Start,
+                                justify_content: JustifyContent::FlexStart,
+                                ..default()
+                            },
+                            Visibility::Hidden,
+                            NewSceneCUDAParamsTag,
+                            children![
+                                make_text_input("16", Text::new("CUDA Blocks"), NewSceneCUDABlocksInput),
+                                make_text_input("256", Text::new("CUDA Threads per Block"), NewSceneCUDAThreadsInput),
+                            ]
+                        ),
                         make_flex_grow(1.0),
-                        (make_button(Text::new("Start Simulation")), NewSceneButtonType::Start),
-                        (make_button(Text::new("Back to Main Menu")), NewSceneButtonType::Back),
+                        (make_button(Text::new("Start Simulation")), NewSceneStartButton),
+                        (make_button(Text::new("Back to Main Menu")), NewSceneBackButton),
                     ],
                 ),
                 (
@@ -102,42 +118,77 @@ pub fn create_new_scene_menu(
     });
 }
 
-pub fn update_new_scene_menu(
+pub fn on_list_button(
+
+) {
+
+}
+
+pub fn on_cuda_toggle_button(
+    interaction_query: Single<&Interaction, (Changed<Interaction>, With<NewSceneCUDAToggleButton>)>,
+    mut cuda_params_query: Query<&mut Visibility, With<NewSceneCUDAParamsTag>>,
+) {
+    match interaction_query.into_inner() {
+        Interaction::Pressed => {
+            cuda_params_query.single_mut().unwrap().toggle_inherited_hidden();
+        },
+        _ => (),
+    }
+}
+
+pub fn on_start_button(
     mut commands: Commands,
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &NewSceneButtonType,
-        ),
-        Changed<Interaction>
-    >,
+    use_cuda_query: Query<Has<bevy::ui::Checked>, With<NewSceneCUDAToggleButton>>,
+    cuda_blocks_param_query: Query<&bevy::text::EditableText, With<NewSceneCUDABlocksInput>>,
+    cuda_threads_param_query: Query<&bevy::text::EditableText, With<NewSceneCUDAThreadsInput>>,
+    interaction_query: Single<&Interaction, (Changed<Interaction>, With<NewSceneStartButton>)>,
+    selected_scene_query: Query<(Has<bevy::ui::Checked>, &SceneToLoad)>,
     mut next_game_state: ResMut<NextState<GameSceneState>>,
     mut next_simulation_state: ResMut<NextState<SimulationState>>,
-    mut next_menu_state: ResMut<NextState<MainMenuState>>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
 ) {
-    for (interaction, mut color, button_type) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                match button_type {
-                    NewSceneButtonType::Start => {
-                        next_game_state.set(GameSceneState::Game);
-                        next_simulation_state.set(SimulationState::Loading);
-                        commands.insert_resource(SceneToLoad::Orbit);
-                    },
-                    NewSceneButtonType::Back => { next_menu_state.set(MainMenuState::MainMenu); },
-                    NewSceneButtonType::CUDAToggle => {
+    match interaction_query.into_inner() {
+        Interaction::Pressed => {
+            let default_params =
+                sim::SimulationParams { time_step: 0.1, theta: 0.001, g_constant: 0.667430 };
 
-                    },
-                };
-            },
-            Interaction::Hovered => {
-                *color = BUTTON_COLOR_HOVER.into();
-            },
-            Interaction::None => {
-                *color = BUTTON_COLOR.into();
+            let use_cuda = use_cuda_query.single().unwrap();
+            if use_cuda {
+                let Ok(num_blocks) = cuda_blocks_param_query.single().unwrap().value().to_string().parse() else { return; };
+                let Ok(num_threads) = cuda_threads_param_query.single().unwrap().value().to_string().parse() else { return; };
+
+                let cuda_params =
+                    sim::cuda_simulation::CUDASimulatorParams { num_blocks, num_threads };
+
+                nbody.init_cuda(default_params, cuda_params);
+            } else {
+                nbody.init_up(default_params);
             }
-        }
+
+            let mut selected_scene = SceneToLoad::Orbit;
+            for (checked, scene) in selected_scene_query {
+                if !checked { continue; }
+
+                selected_scene = *scene;
+            }
+
+            next_game_state.set(GameSceneState::Game);
+            next_simulation_state.set(SimulationState::Loading);
+            commands.insert_resource(LoadingData {
+                scene: selected_scene,
+            });
+        },
+        _ => (),
+    }
+}
+
+pub fn on_back_button(
+    interaction_query: Single<&Interaction, (Changed<Interaction>, With<NewSceneBackButton>)>,
+    mut next_state: ResMut<NextState<MainMenuState>>,
+) {
+    match interaction_query.into_inner() {
+        Interaction::Pressed => { next_state.set(MainMenuState::MainMenu); },
+        _ => (),
     }
 }
 

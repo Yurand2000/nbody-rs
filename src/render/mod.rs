@@ -14,10 +14,7 @@ impl Plugin for SceneRenderPlugin {
         let is_running = in_state(SimMenuState::Running);
 
         app
-            .insert_non_send(sim::MultiSimulator::new_cuda(
-                sim::SimulationParams { time_step: 0.1, theta: 0.001, g_constant: 0.667430 },
-                sim::cuda_simulation::CUDASimulatorParams { num_blocks: 16, num_threads: 256 },
-            ))
+            .insert_non_send(sim::MultiSimulator::empty())
             .add_sub_state::<SimMenuState>()
             .add_sub_state::<SimUpdateState>()
             .add_sub_state::<SimPausedState>()
@@ -150,6 +147,7 @@ fn process_inputs_esc_menu(
     mut next_menu_state: ResMut<NextState<render::SimMenuState>>,
     mut next_game_state: ResMut<NextState<GameSceneState>>,
     mut next_sim_state: ResMut<NextState<render::SimulationState>>,
+    mut nbody: NonSendMut<sim::MultiSimulator>,
 ) {
     use bevy::input::keyboard::Key::*;
     use crate::menu::*;
@@ -162,6 +160,7 @@ fn process_inputs_esc_menu(
     if let Ok((interaction, mut color)) = interaction_query.get_mut(ui_entities.exit_menu_yes_button) {
         match interaction {
             Interaction::Pressed => {
+                nbody.reinit_empty();
                 next_game_state.set(GameSceneState::MainMenu);
                 next_sim_state.set(SimulationState::Unloaded);
             },

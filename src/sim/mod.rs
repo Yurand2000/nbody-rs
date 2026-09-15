@@ -47,20 +47,26 @@ pub trait SimulatorExt {
 }
 
 pub enum MultiSimulator {
+    Uninit,
     UpSimulator(up_simulation::UpSimulator),
     CUDASimulator(cuda_simulation::CUDASimulator),
 }
 
 impl MultiSimulator {
-    pub fn new_up(params: SimulationParams) -> Self {
-        Self::UpSimulator(up_simulation::UpSimulator::new(params))
+    pub fn empty() -> Self { Self::Uninit }
+
+    pub fn init_up(&mut self, params: SimulationParams) {
+        *self = Self::UpSimulator(up_simulation::UpSimulator::new(params));
     }
 
-    pub fn new_cuda(params: SimulationParams, cuda_params: CUDASimulatorParams) -> Self {
-        let mut sim = Self::CUDASimulator(cuda_simulation::CUDASimulator::new(cuda_params));
+    pub fn init_cuda(&mut self, params: SimulationParams, cuda_params: CUDASimulatorParams) {
+        *self = Self::CUDASimulator(cuda_simulation::CUDASimulator::new(cuda_params));
 
-        sim.set_params(params);
-        sim
+        self.set_params(params);
+    }
+
+    pub fn reinit_empty(&mut self) {
+        *self = Self::Uninit;
     }
 }
 
@@ -69,6 +75,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.get_params(),
             CUDASimulator(sim) => sim.get_params(),
         }
@@ -78,6 +85,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.set_params(params),
             CUDASimulator(sim) => sim.set_params(params),
         }
@@ -87,6 +95,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => (),
             UpSimulator(sim) => sim.reset(),
             CUDASimulator(sim) => sim.reset(),
         }
@@ -96,6 +105,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.insert_body(body),
             CUDASimulator(sim) => sim.insert_body(body),
         }
@@ -105,6 +115,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.step(),
             CUDASimulator(sim) => sim.step(),
         }
@@ -114,6 +125,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.pull_updates(),
             CUDASimulator(sim) => sim.pull_updates(),
         }
@@ -123,6 +135,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.get_bodies(),
             CUDASimulator(sim) => sim.get_bodies(),
         }
@@ -132,6 +145,7 @@ impl Simulator for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.get_body(id),
             CUDASimulator(sim) => sim.get_body(id),
         }
@@ -143,6 +157,7 @@ impl SimulatorExt for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.get_quadtree(),
             CUDASimulator(sim) => sim.get_quadtree(),
         }
@@ -152,6 +167,7 @@ impl SimulatorExt for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.get_forces(quadtree),
             CUDASimulator(sim) => sim.get_forces(quadtree),
         }
@@ -161,6 +177,7 @@ impl SimulatorExt for MultiSimulator {
         use MultiSimulator::*;
 
         match self {
+            Uninit => unreachable!(),
             UpSimulator(sim) => sim.get_body_forces(quadtree, id),
             CUDASimulator(sim) => sim.get_body_forces(quadtree, id),
         }

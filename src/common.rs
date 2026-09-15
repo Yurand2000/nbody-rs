@@ -17,6 +17,12 @@ pub enum SimulationState {
 }
 
 #[derive(Resource)]
+pub struct LoadingData {
+    pub scene: SceneToLoad,
+}
+
+#[derive(Component)]
+#[derive(Clone, Copy)]
 pub enum SceneToLoad {
     Orbit
 }

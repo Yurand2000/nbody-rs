@@ -3,9 +3,11 @@ use crate::common::*;
 
 mod about_menu;
 mod new_scene_menu;
+pub mod generic_ui;
 
 use about_menu::*;
 use new_scene_menu::*;
+pub use generic_ui::*;
 
 pub struct MainMenuPlugin;
 
@@ -20,6 +22,7 @@ impl Plugin for MainMenuPlugin {
         app
             .add_sub_state::<MainMenuState>()
             .add_systems(Startup, setup_ui)
+            .add_systems(Update, (update_buttons_hover, update_text_buttons_hover, update_toggle_buttons_style))
 
             .add_systems(OnEnter(MainMenuState::MainMenu), create_main_menu)
             .add_systems(Update, update_main_menu.run_if(in_state(MainMenuState::MainMenu)))
@@ -30,7 +33,8 @@ impl Plugin for MainMenuPlugin {
             .add_systems(OnExit(MainMenuState::About), destroy_about_menu)
 
             .add_systems(OnEnter(MainMenuState::NewScene), create_new_scene_menu)
-            .add_systems(Update, update_new_scene_menu.run_if(in_state(MainMenuState::NewScene)))
+            .add_systems(Update, (on_start_button, on_back_button, on_cuda_toggle_button, on_list_button)
+                .run_if(in_state(MainMenuState::NewScene)))
             .add_systems(OnExit(MainMenuState::NewScene), destroy_new_scene_menu)
         ;
     }
@@ -79,197 +83,6 @@ pub enum MainMenuState {
     MainMenu,
     NewScene,
     About,
-}
-
-pub const WINDOW_COLOR: Color = Color::srgba(0.2, 0.2, 0.2, 0.7);
-pub const WINDOW_COLOR_LIGHT: Color = Color::srgba(0.25, 0.25, 0.25, 0.7);
-pub const BORDER_COLOR: Color = Color::BLACK;
-pub const BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
-pub const BUTTON_COLOR_HOVER: Color = Color::srgb(0.5, 0.5, 0.5);
-pub const BUTTON_COLOR_SELECTED: Color = Color::srgb(0.4, 0.4, 0.4);
-pub const TEXT_COLOR: Color = Color::WHITE;
-pub const TEXT_COLOR_LIGHT: Color = Color::srgb(0.4, 0.4, 0.4);
-pub const TEXT_COLOR_LIGHT_HOVER: Color = Color::srgb(0.6, 0.6, 0.6);
-pub const CHECKBOX_TRUE: Color = BUTTON_COLOR_SELECTED;
-pub const CHECKBOX_FALSE: Color = Color::NONE;
-
-fn make_text(
-    text: Text,
-    size: Option<FontSize>,
-    color: Option<Color>
-) -> impl Bundle {
-    (
-        text,
-        TextFont {
-            font_size: size.unwrap_or_default(),
-            ..default()
-        },
-        TextColor(color.unwrap_or(TEXT_COLOR)),
-    )
-}
-
-fn make_button(
-    text: impl Bundle
-) -> impl Bundle {
-    (
-        Button,
-        Node {
-            width: percent(100.0),
-            height: px(50),
-            border: UiRect::all(px(2)),
-            margin: UiRect::vertical(px(2)),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            border_radius: BorderRadius::all(px(5)),
-            ..default()
-        },
-        BorderColor::all(BORDER_COLOR),
-        BackgroundColor(BUTTON_COLOR),
-        children![ text ]
-    )
-}
-
-fn make_list_button(
-    text: impl Bundle
-) -> impl Bundle {
-    (
-        Button,
-        Node {
-            width: percent(100.0),
-            height: auto(),
-            border: UiRect::all(px(2)),
-            margin: UiRect::vertical(px(2)),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            border_radius: BorderRadius::all(px(5)),
-            ..default()
-        },
-        BackgroundColor(BUTTON_COLOR),
-        children![ text ]
-    )
-}
-
-fn make_toggle_button(
-    text: impl Bundle
-) -> impl Bundle {
-    (
-        bevy::ui_widgets::Checkbox,
-        Node {
-            border: UiRect::all(px(2)),
-            margin: UiRect::vertical(px(2)),
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::FlexStart,
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    border: UiRect::all(px(2)),
-                    border_radius: BorderRadius::MAX,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceAround,
-                    ..default()
-                },
-                BorderColor::all(BORDER_COLOR),
-                BackgroundColor(BUTTON_COLOR),
-                children![
-                    (
-                        Node {
-                            width: px(12),
-                            height: px(12),
-                            margin: UiRect::all(px(3)),
-                            border_radius: BorderRadius::MAX,
-                            ..default()
-                        },
-                        BackgroundColor(BUTTON_COLOR_HOVER),
-                        Visibility::Inherited,
-                    ),
-                    (
-                        Node {
-                            width: px(12),
-                            height: px(12),
-                            margin: UiRect::all(px(3)),
-                            border_radius: BorderRadius::MAX,
-                            ..default()
-                        },
-                        BackgroundColor(BUTTON_COLOR_HOVER),
-                        Visibility::Hidden,
-                    ),
-                ]
-            ),
-            (
-                Node {
-                    border: UiRect::axes(px(10), px(2)),
-                    margin: UiRect::vertical(px(2)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![ text ]
-            )
-        ]
-
-    )
-}
-
-fn make_radio_button(
-    text: impl Bundle
-) -> impl Bundle {
-    (
-        bevy::ui_widgets::Checkbox,
-        Node {
-            border: UiRect::all(px(2)),
-            margin: UiRect::vertical(px(2)),
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    border: UiRect::all(px(2)),
-                    border_radius: BorderRadius::MAX,
-                    ..default()
-                },
-                BorderColor::all(BORDER_COLOR),
-                BackgroundColor(BUTTON_COLOR),
-                children![(
-                    Node {
-                        width: px(8),
-                        height: px(8),
-                        margin: UiRect::all(px(3)),
-                        border_radius: BorderRadius::MAX,
-                        ..default()
-                    },
-                    BackgroundColor(CHECKBOX_TRUE),
-                )]
-            ),
-            (
-                Node {
-                    // height: px(20),
-                    border: UiRect::axes(px(10), px(2)),
-                    margin: UiRect::vertical(px(2)),
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Stretch,
-                    justify_content: JustifyContent::SpaceEvenly,
-                    ..default()
-                },
-                children![ text ]
-            )
-        ]
-    )
-}
-
-fn make_flex_grow(
-    amount: f32
-) -> impl Bundle {
-    Node {
-        flex_grow: amount,
-        ..default()
-    }
 }
 
 #[derive(Component)]
@@ -321,18 +134,11 @@ fn create_main_menu(
 }
 
 fn update_main_menu(
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &MainMenuButtonType,
-        ),
-        Changed<Interaction>
-    >,
+    interaction_query: Query<(&Interaction, &MainMenuButtonType), Changed<Interaction>>,
     mut next_state: ResMut<NextState<MainMenuState>>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    for (interaction, mut color, button_type) in &mut interaction_query {
+    for (interaction, button_type) in interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 match button_type {
@@ -341,12 +147,7 @@ fn update_main_menu(
                     MainMenuButtonType::Exit => { exit.write(AppExit::Success); },
                 };
             },
-            Interaction::Hovered => {
-                *color = BUTTON_COLOR_HOVER.into();
-            },
-            Interaction::None => {
-                *color = BUTTON_COLOR.into();
-            }
+            _ => (),
         }
     }
 }

@@ -292,7 +292,7 @@ pub fn setup_scene(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
     nbody: NonSendMut<sim::MultiSimulator>,
-    scenario: Res<SceneToLoad>,
+    load_data: Res<LoadingData>,
     mut next_state: ResMut<NextState<SimulationState>>,
 ) {
     println!("Spawning Scene");
@@ -305,11 +305,11 @@ pub fn setup_scene(
 
     setup_scene_ui(commands.reborrow());
 
-    match *scenario {
+    match load_data.scene {
         SceneToLoad::Orbit => { orbit_scenario(commands.reborrow(), render_data, nbody); },
     }
 
-    commands.remove_resource::<SceneToLoad>();
+    commands.remove_resource::<LoadingData>();
     next_state.set(SimulationState::Simulation);
 
     println!("Spawned Scene");

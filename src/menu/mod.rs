@@ -22,7 +22,13 @@ impl Plugin for MainMenuPlugin {
         app
             .add_sub_state::<MainMenuState>()
             .add_systems(Startup, setup_ui)
-            .add_systems(Update, (update_buttons_hover, update_text_buttons_hover, update_toggle_buttons_style))
+            .add_systems(Update, (
+                update_buttons_hover,
+                update_text_buttons_hover,
+                update_list_buttons_style,
+                update_list_buttons_style_2,
+                update_toggle_buttons_style
+            ))
 
             .add_systems(OnEnter(MainMenuState::MainMenu), create_main_menu)
             .add_systems(Update, update_main_menu.run_if(in_state(MainMenuState::MainMenu)))

@@ -76,12 +76,15 @@ pub fn make_text_button(
     )
 }
 
+#[derive(Component)]
+pub struct StyledListButton;
+
 pub fn make_list_button(
     text: impl Bundle
 ) -> impl Bundle {
     (
         Button,
-        StyledButton,
+        StyledListButton,
         Node {
             width: percent(100.0),
             height: auto(),
@@ -302,6 +305,46 @@ pub fn update_text_buttons_hover(
             Interaction::None => {
                 *color = TEXT_COLOR_LIGHT.into();
             }
+        }
+    }
+}
+
+pub fn update_list_buttons_style(
+    mut interaction_query: Query<(Has<Checked>, &Interaction, &mut BackgroundColor), With<StyledListButton>>,
+) {
+    for (checked, interaction, mut color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+
+            },
+            Interaction::Hovered => {
+                *color = BUTTON_COLOR_HOVER.into();
+            },
+            Interaction::None => {
+                *color = if checked {
+                    BUTTON_COLOR_SELECTED.into()
+                } else {
+                    BUTTON_COLOR.into()
+                };
+            }
+        }
+    }
+}
+
+pub fn update_list_buttons_style_2(
+    mut commands: Commands,
+    mut interaction_query: Query<(Entity, &Interaction), (Without<Checked>, Changed<Interaction>, With<StyledListButton>)>,
+    mut with_checked_query: Query<Entity, (With<Checked>, With<StyledListButton>)>,
+) {
+    for (entity, interaction) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                commands.entity(entity).insert_if_new(Checked);
+                for entity in &mut with_checked_query {
+                    commands.entity(entity).remove::<Checked>();
+                }
+            },
+            _ => (),
         }
     }
 }

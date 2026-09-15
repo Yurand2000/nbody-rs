@@ -22,9 +22,12 @@ pub struct LoadingData {
 }
 
 #[derive(Component)]
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 pub enum SceneToLoad {
-    Orbit
+    #[default]
+    TwoBodies,
+    Grid,
+    Orbit,
 }
 
 #[derive(Component)]

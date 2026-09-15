@@ -106,9 +106,9 @@ pub fn create_new_scene_menu(
                             },
                             BackgroundColor(WINDOW_COLOR_LIGHT),
                             children![
+                                (make_list_button(Text::new("Two Bodies")), SceneToLoad::TwoBodies),
+                                (make_list_button(Text::new("Grid")), SceneToLoad::Grid),
                                 (make_list_button(Text::new("Orbit")), SceneToLoad::Orbit),
-                                make_list_button(Text::new("Scenario 1")),
-                                make_list_button(Text::new("Scenario 2")),
                             ],
                         ),
                     ],
@@ -149,8 +149,17 @@ pub fn on_start_button(
 ) {
     match interaction_query.into_inner() {
         Interaction::Pressed => {
+            let mut selected_scene = None;
+            for (checked, scene) in selected_scene_query {
+                if !checked { continue; }
+
+                selected_scene = Some(*scene);
+            }
+
+            let Some(scene) = selected_scene else { return; };
+
             let default_params =
-                sim::SimulationParams { time_step: 0.1, theta: 0.001, g_constant: 0.667430 };
+                sim::SimulationParams { time_step: 0.1, theta: 0.1, g_constant: 0.667430 };
 
             let use_cuda = use_cuda_query.single().unwrap();
             if use_cuda {
@@ -165,18 +174,9 @@ pub fn on_start_button(
                 nbody.init_up(default_params);
             }
 
-            let mut selected_scene = SceneToLoad::Orbit;
-            for (checked, scene) in selected_scene_query {
-                if !checked { continue; }
-
-                selected_scene = *scene;
-            }
-
             next_game_state.set(GameSceneState::Game);
             next_simulation_state.set(SimulationState::Loading);
-            commands.insert_resource(LoadingData {
-                scene: selected_scene,
-            });
+            commands.insert_resource(LoadingData { scene });
         },
         _ => (),
     }

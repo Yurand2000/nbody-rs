@@ -13,7 +13,6 @@ pub struct MainMenuPlugin;
 
 #[derive(Resource)]
 pub struct UIData {
-    camera_entity: Entity,
     main_ui_entity: Entity,
 }
 
@@ -39,7 +38,7 @@ impl Plugin for MainMenuPlugin {
             .add_systems(OnExit(MainMenuState::About), destroy_about_menu)
 
             .add_systems(OnEnter(MainMenuState::NewScene), create_new_scene_menu)
-            .add_systems(Update, (on_start_button, on_back_button, on_cuda_toggle_button, on_list_button)
+            .add_systems(Update, (on_start_button, on_back_button, on_cuda_toggle_button)
                 .run_if(in_state(MainMenuState::NewScene)))
             .add_systems(OnExit(MainMenuState::NewScene), destroy_new_scene_menu)
         ;
@@ -76,7 +75,7 @@ fn setup_ui(
         )).id();
 
     commands.insert_resource(
-        UIData { camera_entity, main_ui_entity }
+        UIData { main_ui_entity }
     );
 
     next_state.set(GameSceneState::MainMenu);

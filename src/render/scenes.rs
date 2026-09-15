@@ -1,4 +1,4 @@
-use bevy::{math::{NormedVectorSpace, VectorSpace}, prelude::*};
+use bevy::prelude::*;
 use rand::RngExt as _;
 use crate::sim::Simulator as _;
 use super::*;

@@ -1,4 +1,4 @@
-use bevy::{picking::hover::Hovered, ui::Checked};
+use bevy::ui::Checked;
 use super::*;
 
 pub const WINDOW_COLOR: Color = Color::srgba(0.2, 0.2, 0.2, 0.7);
@@ -10,8 +10,9 @@ pub const BUTTON_COLOR_SELECTED: Color = Color::srgb(0.4, 0.4, 0.4);
 pub const TEXT_COLOR: Color = Color::WHITE;
 pub const TEXT_COLOR_LIGHT: Color = Color::srgb(0.4, 0.4, 0.4);
 pub const TEXT_COLOR_LIGHT_HOVER: Color = Color::srgb(0.6, 0.6, 0.6);
-pub const CHECKBOX_TRUE: Color = BUTTON_COLOR_SELECTED;
-pub const CHECKBOX_FALSE: Color = Color::NONE;
+
+#[derive(Component)]
+pub struct DisabledButton;
 
 pub fn make_text(
     text: Text,
@@ -169,54 +170,6 @@ pub fn make_toggle_button(
     )
 }
 
-pub fn make_radio_button(
-    text: impl Bundle
-) -> impl Bundle {
-    (
-        bevy::ui_widgets::Checkbox,
-        Node {
-            border: UiRect::all(px(2)),
-            margin: UiRect::vertical(px(2)),
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    border: UiRect::all(px(2)),
-                    border_radius: BorderRadius::MAX,
-                    ..default()
-                },
-                BorderColor::all(BORDER_COLOR),
-                BackgroundColor(BUTTON_COLOR),
-                children![(
-                    Node {
-                        width: px(8),
-                        height: px(8),
-                        margin: UiRect::all(px(3)),
-                        border_radius: BorderRadius::MAX,
-                        ..default()
-                    },
-                    BackgroundColor(CHECKBOX_TRUE),
-                )]
-            ),
-            (
-                Node {
-                    border: UiRect::axes(px(10), px(2)),
-                    margin: UiRect::vertical(px(2)),
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Stretch,
-                    justify_content: JustifyContent::SpaceEvenly,
-                    ..default()
-                },
-                children![ text ]
-            )
-        ]
-    )
-}
-
 pub fn make_text_input<'a>(
     initial_text: &'a str,
     text: impl Bundle,
@@ -275,7 +228,7 @@ pub fn make_flex_grow(
 
 // Systems
 pub fn update_buttons_hover(
-    mut interaction_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<StyledButton>)>,
+    mut interaction_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<StyledButton>, Without<DisabledButton>)>,
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
@@ -291,7 +244,7 @@ pub fn update_buttons_hover(
 }
 
 pub fn update_text_buttons_hover(
-    mut interaction_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<StyledTextButton>)>,
+    mut interaction_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<StyledTextButton>, Without<DisabledButton>)>,
     mut text_query: Query<&mut TextColor>,
 ) {
     for (interaction, children) in &mut interaction_query {
@@ -310,7 +263,7 @@ pub fn update_text_buttons_hover(
 }
 
 pub fn update_list_buttons_style(
-    mut interaction_query: Query<(Has<Checked>, &Interaction, &mut BackgroundColor), With<StyledListButton>>,
+    mut interaction_query: Query<(Has<Checked>, &Interaction, &mut BackgroundColor), (With<StyledListButton>, Without<DisabledButton>)>,
 ) {
     for (checked, interaction, mut color) in &mut interaction_query {
         match *interaction {
@@ -333,7 +286,7 @@ pub fn update_list_buttons_style(
 
 pub fn update_list_buttons_style_2(
     mut commands: Commands,
-    mut interaction_query: Query<(Entity, &Interaction), (Without<Checked>, Changed<Interaction>, With<StyledListButton>)>,
+    mut interaction_query: Query<(Entity, &Interaction), (Without<Checked>, Changed<Interaction>, With<StyledListButton>, Without<DisabledButton>)>,
     mut with_checked_query: Query<Entity, (With<Checked>, With<StyledListButton>)>,
 ) {
     for (entity, interaction) in &mut interaction_query {
@@ -351,7 +304,7 @@ pub fn update_list_buttons_style_2(
 
 pub fn update_toggle_buttons_style(
     mut commands: Commands,
-    interaction_query: Query<(Entity, Has<Checked>, &Interaction, &Children), (Changed<Interaction>, With<StyledToggleButton>)>,
+    interaction_query: Query<(Entity, Has<Checked>, &Interaction, &Children), (Changed<Interaction>, With<StyledToggleButton>, Without<DisabledButton>)>,
     mut children_query: Query<(&Children, &mut BackgroundColor), Without<StyledToggleButton>>,
     mut visibility_query: Query<&mut Visibility, Without<StyledToggleButton>>,
 ) {

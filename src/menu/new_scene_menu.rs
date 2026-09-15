@@ -27,6 +27,14 @@ pub fn create_new_scene_menu(
     mut commands: Commands,
     ui_data: Res<UIData>,
 ) {
+    #[cfg(feature = "cuda")]
+    let cuda_button =
+        (make_toggle_button(Text::new("CUDA Simulation")), NewSceneCUDAToggleButton);
+
+    #[cfg(not(feature = "cuda"))]
+    let cuda_button =
+        (make_toggle_button((Text::new("CUDA Simulation"), TextColor(TEXT_COLOR_LIGHT))), NewSceneCUDAToggleButton, DisabledButton);
+
     commands.entity(ui_data.main_ui_entity).with_children(|parent| {
         parent.spawn((
             Node {
@@ -56,7 +64,7 @@ pub fn create_new_scene_menu(
                             Some(FontSize::Px(24.0)),
                             None,
                         ),
-                        (make_toggle_button(Text::new("CUDA Simulation")), NewSceneCUDAToggleButton),
+                        cuda_button,
                         (
                             Node {
                                 flex_direction: FlexDirection::Column,
@@ -118,14 +126,8 @@ pub fn create_new_scene_menu(
     });
 }
 
-pub fn on_list_button(
-
-) {
-
-}
-
 pub fn on_cuda_toggle_button(
-    interaction_query: Single<&Interaction, (Changed<Interaction>, With<NewSceneCUDAToggleButton>)>,
+    interaction_query: Single<&Interaction, (Changed<Interaction>, With<NewSceneCUDAToggleButton>, Without<DisabledButton>)>,
     mut cuda_params_query: Query<&mut Visibility, With<NewSceneCUDAParamsTag>>,
 ) {
     match interaction_query.into_inner() {
@@ -139,7 +141,9 @@ pub fn on_cuda_toggle_button(
 pub fn on_start_button(
     mut commands: Commands,
     use_cuda_query: Query<Has<bevy::ui::Checked>, With<NewSceneCUDAToggleButton>>,
+    #[allow(unused_variables)]
     cuda_blocks_param_query: Query<&bevy::text::EditableText, With<NewSceneCUDABlocksInput>>,
+    #[allow(unused_variables)]
     cuda_threads_param_query: Query<&bevy::text::EditableText, With<NewSceneCUDAThreadsInput>>,
     interaction_query: Single<&Interaction, (Changed<Interaction>, With<NewSceneStartButton>)>,
     selected_scene_query: Query<(Has<bevy::ui::Checked>, &SceneToLoad)>,
@@ -163,13 +167,16 @@ pub fn on_start_button(
 
             let use_cuda = use_cuda_query.single().unwrap();
             if use_cuda {
-                let Ok(num_blocks) = cuda_blocks_param_query.single().unwrap().value().to_string().parse() else { return; };
-                let Ok(num_threads) = cuda_threads_param_query.single().unwrap().value().to_string().parse() else { return; };
+                #[cfg(feature = "cuda")]
+                {
+                    let Ok(num_blocks) = cuda_blocks_param_query.single().unwrap().value().to_string().parse() else { return; };
+                    let Ok(num_threads) = cuda_threads_param_query.single().unwrap().value().to_string().parse() else { return; };
 
-                let cuda_params =
-                    sim::cuda_simulation::CUDASimulatorParams { num_blocks, num_threads };
+                    let cuda_params =
+                        sim::cuda_simulation::CUDASimulatorParams { num_blocks, num_threads };
 
-                nbody.init_cuda(default_params, cuda_params);
+                    nbody.init_cuda(default_params, cuda_params);
+                }
             } else {
                 nbody.init_up(default_params);
             }

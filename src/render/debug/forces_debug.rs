@@ -11,7 +11,7 @@ pub struct ForceTag;
 pub fn setup_forces(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     println!("Setup Forces Debug");
 

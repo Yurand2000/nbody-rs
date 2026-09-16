@@ -204,7 +204,7 @@ fn new_body(
     vel: Vec2,
     render_data: &MyAssetData,
     commands: &mut Commands,
-    nbody: &mut sim::MultiSimulator,
+    nbody: &mut sim::async_simulator::AsyncSimulatorFrontend,
 ) {
     let body = sim::Body {
         mass,
@@ -228,7 +228,7 @@ fn new_body(
 fn orbit_scenario(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     let g = nbody.get_params().g_constant;
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(17);
@@ -291,7 +291,7 @@ fn orbit_scenario(
 fn two_body_orbit_scenario(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     let mut new_body = |mass, pos, vel|
         new_body(mass, pos, vel, &render_data, &mut commands, &mut nbody);
@@ -303,7 +303,7 @@ fn two_body_orbit_scenario(
 fn grid_scenario(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     let mut new_body = |mass, posx, posy, velx, vely|
         new_body(mass, Vec2::new(posx, posy), Vec2::new(velx, vely), &render_data, &mut commands, &mut nbody);
@@ -342,7 +342,7 @@ fn grid_scenario(
 pub fn setup_scene(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    nbody: NonSendMut<sim::MultiSimulator>,
+    nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
     load_data: Res<LoadingData>,
     mut next_state: ResMut<NextState<SimulationState>>,
 ) {
@@ -370,7 +370,7 @@ pub fn setup_scene(
 
 pub fn destroy_scene(
     mut commands: Commands,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
     ui_items: Query<Entity, With<SimEntityTag>>,
 ) {
     for entity in ui_items {

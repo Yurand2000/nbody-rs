@@ -1,3 +1,5 @@
+pub mod async_simulator;
+
 pub mod up_simulation;
 #[cfg(feature = "cuda")]
 pub mod cuda_simulation;
@@ -8,13 +10,14 @@ pub use quadtree::*;
 pub type Vec2f = nalgebra::Vector2<f32>;
 pub type BodyId = usize;
 
+#[derive(Debug, Clone)]
 pub struct Body {
     pub mass: f32,
     pub position: Vec2f,
     pub velocity: Vec2f,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct SimulationParams {
     pub time_step: f32,
     pub theta: f32,

@@ -14,20 +14,21 @@ impl Plugin for SceneRenderPlugin {
         let is_running = in_state(SimMenuState::Running);
 
         app
-            .insert_non_send(sim::MultiSimulator::empty())
             .add_sub_state::<SimMenuState>()
             .add_sub_state::<SimUpdateState>()
             .add_sub_state::<SimPausedState>()
 
-            .add_systems(Startup, render_setup)
+            .add_systems(Startup, (simulator_setup, render_setup))
             .add_systems(OnEnter(SimulationState::Loading), scenes::setup_scene)
             .add_systems(OnExit(SimulationState::Simulation), scenes::destroy_scene)
             .add_systems(OnEnter(SimUpdateState::Running), update_tooltip_text)
 
             // Simulation Systems
+            .add_systems(OnEnter(SimUpdateState::Running), start_simulation)
             .add_systems(Update, (update::process_inputs, update::update_fps_text).run_if( is_running.clone() ))
             .add_systems(FixedUpdate, update::update.run_if( is_running.clone().and_then(in_state(SimUpdateState::Running)) ))
             .add_systems(Update, update::process_inputs_simulate.run_if( is_running.clone().and_then(in_state(SimUpdateState::Running)) ))
+            .add_systems(OnExit(SimUpdateState::Running), stop_simulation)
 
             // EscMenu Systems
             .add_systems(OnEnter(SimMenuState::EscMenu), enter_esc_menu)
@@ -93,6 +94,18 @@ pub struct MyAssetData {
     force_material: Handle<ColorMaterial>,
 }
 
+fn simulator_setup(
+    mut commands: Commands,
+) {
+    let (backend, frontend) = sim::async_simulator::new_async_simulator();
+
+    std::thread::spawn(|| {
+        smol::block_on(backend.build().run());
+    });
+
+    commands.insert_resource(frontend);
+}
+
 fn render_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -147,7 +160,7 @@ fn process_inputs_esc_menu(
     mut next_menu_state: ResMut<NextState<render::SimMenuState>>,
     mut next_game_state: ResMut<NextState<GameSceneState>>,
     mut next_sim_state: ResMut<NextState<render::SimulationState>>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     use bevy::input::keyboard::Key::*;
     use crate::menu::*;
@@ -191,4 +204,16 @@ fn exit_esc_menu(
     mut ui_visibility: Query<&mut Visibility>,
 ) {
     *ui_visibility.get_mut(ui_entities.exit_menu_root).unwrap() = Visibility::Hidden;
+}
+
+fn start_simulation(
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
+) {
+    nbody.set_run();
+}
+
+fn stop_simulation(
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
+) {
+    nbody.set_pause();
 }

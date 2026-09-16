@@ -6,7 +6,7 @@ use crate::sim::Simulator as _;
 use super::*;
 
 pub fn update(
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
     bodies: Query<(&mut Transform, &BodyId)>,
 ) {
     nbody.step();
@@ -77,7 +77,7 @@ pub fn process_inputs(
 
 pub fn process_inputs_simulate(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
     ui_entities: Res<SimulationUiEntities>,
     mut text_query: Query<&mut Text>,
 ) {

@@ -16,7 +16,7 @@ pub struct QuadTreeItem {
 pub fn setup_quadtree(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    nbody: NonSend<sim::MultiSimulator>,
+    nbody: Res<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     use sim::QuadTreeUtils;
 
@@ -83,9 +83,11 @@ pub fn setup_quadtree(
 
 pub fn process_inputs_debug_quadtree(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
-    mut debug_data: ResMut<QuadtreeDebugState>,
+    debug_data: Option<ResMut<QuadtreeDebugState>>,
     quadtree_items: Query<(&mut Visibility, &QuadTreeItem)>,
 ) {
+    let Some(mut debug_data) = debug_data else { return; };
+
     if keys.just_pressed(bevy::input::keyboard::Key::ArrowUp) {
         if debug_data.view_level < debug_data.max_level {
             debug_data.view_level += 1;

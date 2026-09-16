@@ -16,7 +16,7 @@ pub struct ForceSingleTag { body_id: usize }
 pub fn setup_force_single(
     mut commands: Commands,
     render_data: Res<MyAssetData>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     println!("Setup Force Single Debug");
 
@@ -81,7 +81,7 @@ pub fn setup_force_single(
 pub fn process_inputs_debug_force_single(
     keys: Res<ButtonInput<bevy::input::keyboard::Key>>,
     mut debug_data: ResMut<ForceSingleDebugState>,
-    nbody: NonSend<sim::MultiSimulator>,
+    nbody: Res<sim::async_simulator::AsyncSimulatorFrontend>,
     force_single_items: Query<(&mut Visibility, &ForceSingleTag)>,
 ) {
     if keys.pressed(bevy::input::keyboard::Key::ArrowUp) {

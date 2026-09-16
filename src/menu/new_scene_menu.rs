@@ -149,7 +149,7 @@ pub fn on_start_button(
     selected_scene_query: Query<(Has<bevy::ui::Checked>, &SceneToLoad)>,
     mut next_game_state: ResMut<NextState<GameSceneState>>,
     mut next_simulation_state: ResMut<NextState<SimulationState>>,
-    mut nbody: NonSendMut<sim::MultiSimulator>,
+    mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
 ) {
     match interaction_query.into_inner() {
         Interaction::Pressed => {
@@ -163,7 +163,7 @@ pub fn on_start_button(
             let Some(scene) = selected_scene else { return; };
 
             let default_params =
-                sim::SimulationParams { time_step: 0.1, theta: 0.1, g_constant: 0.667430 };
+                sim::SimulationParams { time_step: 0.01, theta: 0.01, g_constant: 0.667430 };
 
             let use_cuda = use_cuda_query.single().unwrap();
             if use_cuda {

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::Arc;
 use smol::lock::{
     Mutex,
@@ -27,6 +28,7 @@ pub struct AsyncSimulatorBackend {
     body_updates: Sender<(BodyId, Body)>,
     param_updates: Receiver<SimulationParams>,
     comms: AsyncSimulatorComms,
+    diagnostics: SimulatorDiagnostics,
 }
 
 #[derive(Clone)]
@@ -37,12 +39,18 @@ pub struct AsyncSimulatorComms {
     can_run: Arc<Mutex<bool>>,
     push_updates_from_simulator: Arc<Mutex<bool>>,
     updates_semaphore: Arc<Semaphore>,
+    updates_per_second: Arc<Mutex<f64>>,
 }
 
-pub enum ResetData {
+enum ResetData {
     Uninit,
     UpSimulator(SimulationParams),
     CUDASimulator(SimulationParams, cuda_simulation::CUDASimulatorParams),
+}
+
+struct SimulatorDiagnostics {
+    average: f64,
+    update_times: VecDeque<std::time::Instant>,
 }
 
 pub fn new_async_simulator() -> (AsyncSimulatorBackendBuilder, AsyncSimulatorFrontend) {
@@ -86,6 +94,7 @@ impl AsyncSimulatorBackendBuilder {
             body_updates: self.body_updates,
             param_updates: self.param_updates,
             comms: self.comms,
+            diagnostics: SimulatorDiagnostics::new(),
         }
     }
 }
@@ -99,6 +108,10 @@ impl AsyncSimulatorBackend {
 
         let mut last_instant = std::time::Instant::now();
         while !*self.comms.exit.lock().await {
+            self.diagnostics.update();
+            *self.comms.updates_per_second.lock().await =
+                self.diagnostics.updates_per_second();
+
             // reinit the simulator?
             if let Some(reset_data) = self.comms.init.lock().await.take() {
                 use ResetData::*;
@@ -185,6 +198,10 @@ impl AsyncSimulatorFrontend {
         *smol::block_on(self.comms.init.lock()) = Some(ResetData::Uninit);
     }
 
+    pub fn get_steps_per_second(&self) -> f64 {
+        *smol::block_on(self.comms.updates_per_second.lock())
+    }
+
     pub fn set_run(&mut self) {
         *smol::block_on(self.comms.can_run.lock()) = true;
     }
@@ -262,6 +279,37 @@ impl AsyncSimulatorComms {
             can_run: Arc::new(Mutex::new(false)),
             push_updates_from_simulator: Arc::new(Mutex::new(false)),
             updates_semaphore: Arc::new(Semaphore::new(1)),
+            updates_per_second: Arc::new(Mutex::new(0.0)),
         }
+    }
+}
+
+impl SimulatorDiagnostics {
+    pub fn new() -> Self {
+        Self {
+            average: 0.0,
+            update_times: VecDeque::new(),
+        }
+    }
+
+    pub fn updates_per_second(&self) -> f64 {
+        self.average
+    }
+
+    pub fn update(&mut self) {
+        const WINDOW_SIZE: std::time::Duration = std::time::Duration::from_millis(1000);
+
+        let now = std::time::Instant::now();
+        self.update_times.push_back(now);
+
+        while let Some(&oldest) = self.update_times.front() {
+            if now - oldest > WINDOW_SIZE {
+                self.update_times.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        self.average = self.update_times.len() as f64 / WINDOW_SIZE.as_secs_f64();
     }
 }

@@ -25,7 +25,7 @@ impl Plugin for SceneRenderPlugin {
 
             // Simulation Systems
             .add_systems(OnEnter(SimUpdateState::Running), start_simulation)
-            .add_systems(Update, (update::process_inputs, update::update_fps_text).run_if( is_running.clone() ))
+            .add_systems(Update, (update::process_inputs, update::update_fps_text, update::update_ups_text).run_if( is_running.clone() ))
             .add_systems(FixedUpdate, update::update.run_if( is_running.clone().and_then(in_state(SimUpdateState::Running)) ))
             .add_systems(Update, update::process_inputs_simulate.run_if( is_running.clone().and_then(in_state(SimUpdateState::Running)) ))
             .add_systems(OnExit(SimUpdateState::Running), stop_simulation)

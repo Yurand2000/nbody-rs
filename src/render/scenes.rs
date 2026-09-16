@@ -69,7 +69,7 @@ fn setup_scene_ui(
 
             steps_s_text =
                 parent.spawn((
-                    Text::new("Steps/s: NaN"),
+                    Text::new("UPS: NaN"),
                     SimulationUiTag,
                 )).id();
 

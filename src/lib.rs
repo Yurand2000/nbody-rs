@@ -29,5 +29,5 @@ impl Plugin for GamePlugin {
 fn game_setup(
     mut commands: Commands,
 ) {
-    commands.insert_resource(Time::<Fixed>::from_hz(30.0));
+    commands.insert_resource(Time::<Fixed>::from_hz(60.0));
 }

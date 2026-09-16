@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::input::mouse::MouseWheel;
 use crate::render::scenes::SimulationUiEntities;
 use crate::sim::Simulator as _;
+use crate::sim::async_simulator::AsyncSimulatorFrontend;
 
 use super::*;
 
@@ -127,5 +128,16 @@ pub fn update_fps_text(
         let mut fps_text = text_query.get_mut(ui_entities.fps_text).unwrap();
         *fps_text = Text::new(format!("FPS: {:.2}", value));
     }
+}
+
+pub fn update_ups_text(
+    nbody: Res<AsyncSimulatorFrontend>,
+    ui_entities: Res<SimulationUiEntities>,
+    mut text_query: Query<&mut Text>,
+) {
+    let value = nbody.get_steps_per_second();
+
+    let mut ups_text = text_query.get_mut(ui_entities.steps_s_text).unwrap();
+    *ups_text = Text::new(format!("UPS: {:.2}", value));
 }
 

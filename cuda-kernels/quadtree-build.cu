@@ -70,13 +70,11 @@ cudaError_t zero_quadtree(
 ) {
     cudaError_t err;
 
-    cudaMemset(quadtree.mass, 0, sizeof(float) * __layer_end(quadtree.depth));
-    err = cudaGetLastError();
+    err = cudaMemset(quadtree.mass, 0, sizeof(float) * __layer_end(quadtree.depth));
     if (err != cudaSuccess)
         return err;
 
-    cudaMemset(quadtree.center_of_mass, 0, sizeof(vec2f) * __layer_end(quadtree.depth));
-    err = cudaGetLastError();
+    err = cudaMemset(quadtree.center_of_mass, 0, sizeof(vec2f) * __layer_end(quadtree.depth));
     if (err != cudaSuccess)
         return err;
 

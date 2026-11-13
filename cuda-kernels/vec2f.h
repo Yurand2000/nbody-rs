@@ -1,6 +1,8 @@
 #ifndef CUDA_VEC2F
 #define CUDA_VEC2F
 
+#include <float.h>
+
 extern "C" {
 
 typedef struct {
@@ -12,6 +14,14 @@ typedef struct {
 
 __device__ inline vec2f __vec2f_zero() {
     return { .x = 0.0f, .y = 0.0f };
+}
+
+__device__ inline vec2f __vec2f_max_value() {
+    return { .x = FLT_MAX, .y = FLT_MAX };
+}
+
+__device__ inline vec2f __vec2f_min_value() {
+    return { .x = -FLT_MAX, .y = -FLT_MAX };
 }
 
 __device__ inline vec2f __vec2f_add(const vec2f a, const vec2f b) {

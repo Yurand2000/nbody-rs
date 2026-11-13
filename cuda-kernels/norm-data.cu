@@ -18,8 +18,8 @@ __global__ void __cuda_compute_bodies_info(
 
     u64 idx = threadIdx.x;
 
-    min_pos[idx] = __vec2f_zero();
-    max_pos[idx] = __vec2f_zero();
+    min_pos[idx] = __vec2f_max_value();
+    max_pos[idx] = __vec2f_min_value();
     for (u64 i = __thread_body_start(bodies.count); i < __thread_body_end(bodies.count); i++) {
         min_pos[idx] = __vec2f_comp_min(min_pos[idx], bodies.position[i]);
         max_pos[idx] = __vec2f_comp_max(max_pos[idx], bodies.position[i]);
@@ -58,11 +58,16 @@ __global__ void __cuda_reduce_block_bodies_info(
         global_max = __vec2f_comp_max(global_max, block_max[i]);
     }
 
-    // Apply a small delta
-    global_min.x -= 10.0f;
-    global_min.y -= 10.0f;
-    global_max.x += 10.0f;
-    global_max.y += 10.0f;
+    // Apply a small delta, proportional to the extent (1.0f if degenerate)
+    float delta_x = 0.01f * (global_max.x - global_min.x);
+    float delta_y = 0.01f * (global_max.y - global_min.y);
+    if (delta_x <= 0.0f) delta_x = 1.0f;
+    if (delta_y <= 0.0f) delta_y = 1.0f;
+
+    global_min.x -= delta_x;
+    global_min.y -= delta_y;
+    global_max.x += delta_x;
+    global_max.y += delta_y;
 
     *(info.offset) = global_min;
     *(info.size) = __vec2f_sub(global_max, global_min);
@@ -83,10 +88,11 @@ cudaError_t cuda_compute_normalization_data(
     if (err != cudaSuccess)
         return err;
 
-    cudaMemset(data, 0, sizeof(vec2f) * 2 * num_blocks);
-    err = cudaGetLastError();
-    if (err != cudaSuccess)
+    err = cudaMemset(data, 0, sizeof(vec2f) * 2 * num_blocks);
+    if (err != cudaSuccess) {
+        cudaFree(data);
         return err;
+    }
 
     vec2f* block_min = data;
     vec2f* block_max = data + num_blocks;

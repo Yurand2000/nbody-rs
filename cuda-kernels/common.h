@@ -42,7 +42,7 @@ __host__ __device__ inline u64 ceil_div_u64(u64 a, u64 b) {
 }
 
 __device__ inline u64 __log2_u64(u64 x) {
-    return 31 - __clz(x);
+    return 63 - __clzll(x);
 }
 
 inline u64 is_pow2_u64(u64 x) {
@@ -52,7 +52,7 @@ inline u64 is_pow2_u64(u64 x) {
 inline u64 is_pow4_u64(u64 x) {
     if (!x) return 0;
     if (x & (x - 1)) return 0;
-    u64 idx = 63 - __builtin_clz(x);
+    u64 idx = 63 - __builtin_clzll(x);
     return (idx & 1) == 0;
 }
 
@@ -105,7 +105,7 @@ __host__ __device__ inline u64 __layer_end(u64 depth) {
 }
 
 __device__ inline u64 __layer_dim(u64 depth) {
-    return 1 << depth;
+    return 1ULL << depth;
 }
 
 __device__ inline u64 __layer_size(u64 depth) {

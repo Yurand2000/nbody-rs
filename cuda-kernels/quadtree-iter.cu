@@ -75,7 +75,7 @@ __device__ bool __cuda_quadtree_iter_next(
         if (__vec2f_magnitude_sqr(diff_position) >= FLT_EPSILON)
             ratio = __layer_width(curr_depth) / __vec2f_magnitude(diff_position);
 
-        if ((ratio < theta) || (curr_depth >= quadtree.depth - 1)) {
+        if ((ratio < theta) || (curr_depth >= quadtree.depth)) {
             // return current cell
             *result = {
                 .cell = cell_idx,
@@ -126,13 +126,15 @@ cudaError_t cuda_quadtree_iter_alloc(
     cudaError_t err;
 
     // Allocate iterators
-    err = cudaMalloc((void**)(&iterators->visit_stack), sizeof(vec2f) * grid_size * (quadtree_depth + 1));
+    err = cudaMalloc((void**)(&iterators->visit_stack), sizeof(struct visit_cell) * grid_size * (quadtree_depth + 1));
     if (err != cudaSuccess)
         return err;
 
     err = cudaMalloc((void**)(&iterators->nearest_cells), sizeof(u64) * grid_size * (quadtree_depth + 1));
-    if (err != cudaSuccess)
+    if (err != cudaSuccess) {
+        cudaFree(iterators->visit_stack);
         return err;
+    }
 
     return cudaSuccess;
 }

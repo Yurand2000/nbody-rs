@@ -45,6 +45,7 @@ pub struct AsyncSimulatorComms {
 enum ResetData {
     Uninit,
     UpSimulator(SimulationParams),
+    #[cfg(feature = "cuda")]
     CUDASimulator(SimulationParams, cuda_simulation::CUDASimulatorParams),
 }
 
@@ -121,6 +122,7 @@ impl AsyncSimulatorBackend {
                         self.simulator.reinit_empty(),
                     UpSimulator(params) =>
                         self.simulator.init_up(params),
+                    #[cfg(feature = "cuda")]
                     CUDASimulator(params, cuda_params) =>
                         self.simulator.init_cuda(params, cuda_params),
                 };

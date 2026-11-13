@@ -146,7 +146,7 @@ impl AsyncSimulatorBackend {
             }
 
             // update params?
-            if let Ok(params) = self.param_updates.try_recv() {
+            while let Ok(params) = self.param_updates.try_recv() {
                 self.simulator.set_params(params);
             }
 
@@ -222,6 +222,8 @@ impl Simulator for AsyncSimulatorFrontend {
     }
 
     fn reset(&mut self) {
+        self.bodies.clear();
+        while let Ok(_) = self.body_updates.try_recv() { }
         *smol::block_on(self.comms.reset.lock()) = true;
     }
 
@@ -240,8 +242,12 @@ impl Simulator for AsyncSimulatorFrontend {
 
         let guard = smol::block_on(self.comms.updates_semaphore.acquire());
 
-        while let Ok((id, body)) = self.body_updates.try_recv() {
-            self.bodies[id] = body;
+        if self.bodies.is_empty() {
+            while let Ok(_) = self.body_updates.try_recv() { }
+        } else {
+            while let Ok((id, body)) = self.body_updates.try_recv() {
+                self.bodies[id] = body;
+            }
         }
 
         drop(guard);

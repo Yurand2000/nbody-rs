@@ -156,7 +156,7 @@ impl<'a> Iterator for QuadTreeIterator<'a, QuadTreeCell> {
             // visit cell
             let curr_width = QuadTreeUtils::layer_width(curr_depth);
             let ratio: f32 = curr_width / (self.position - cell.position).magnitude() * self.quad_tree.norm.size.magnitude();
-            if ratio < self.theta || curr_depth >= (self.quad_tree.depth - 1) {
+            if ratio < self.theta || curr_depth >= self.quad_tree.depth {
                 // return current cell
                 let belongs_to_cell = curr_cell_idx == self.nearest_cells[curr_depth];
                 return Some((cell, belongs_to_cell));
@@ -300,9 +300,14 @@ impl NormalizationData {
             max.y = max.y.max(position.y);
         }
 
-        let delta = 10.0;
-        max += Vec2f::new(delta, delta);
-        min -= Vec2f::new(delta, delta);
+        // Proportional to the extent (1.0 if degenerate)
+        let mut delta_x = 0.01 * (max.x - min.x);
+        let mut delta_y = 0.01 * (max.y - min.y);
+        if delta_x <= 0.0 { delta_x = 1.0; }
+        if delta_y <= 0.0 { delta_y = 1.0; }
+
+        max += Vec2f::new(delta_x, delta_y);
+        min -= Vec2f::new(delta_x, delta_y);
 
         NormalizationData {
             offset: min,

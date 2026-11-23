@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" font-family="sans-serif" font-size="12">
+  <!-- 2x2 sibling groups (same parent), checkerboard tint -->
+  <g fill="#2e86c1" fill-opacity="0.15">
+    <rect x="10" y="10" width="100" height="100"/><rect x="110" y="110" width="100" height="100"/>
+    <rect x="10" y="210" width="100" height="100"/><rect x="110" y="310" width="100" height="100"/>
+    <rect x="210" y="10" width="100" height="100"/><rect x="310" y="110" width="100" height="100"/>
+    <rect x="210" y="210" width="100" height="100"/><rect x="310" y="310" width="100" height="100"/>
+  </g>
+  <g fill="#e74c3c" fill-opacity="0.15">
+    <rect x="10" y="110" width="100" height="100"/><rect x="110" y="10" width="100" height="100"/>
+    <rect x="10" y="310" width="100" height="100"/><rect x="110" y="210" width="100" height="100"/>
+    <rect x="210" y="110" width="100" height="100"/><rect x="310" y="10" width="100" height="100"/>
+    <rect x="210" y="310" width="100" height="100"/><rect x="310" y="210" width="100" height="100"/>
+  </g>
+
+  <!-- Cell grid (8x8) -->
+  <g stroke="#999" stroke-width="0.5">
+    <line x1="60" y1="10" x2="60" y2="410"/><line x1="160" y1="10" x2="160" y2="410"/>
+    <line x1="260" y1="10" x2="260" y2="410"/><line x1="360" y1="10" x2="360" y2="410"/>
+    <line x1="10" y1="60" x2="410" y2="60"/><line x1="10" y1="160" x2="410" y2="160"/>
+    <line x1="10" y1="260" x2="410" y2="260"/><line x1="10" y1="360" x2="410" y2="360"/>
+  </g>
+  <!-- Parent cells (layer 2) -->
+  <g stroke="#666" stroke-width="1.2">
+    <line x1="110" y1="10" x2="110" y2="410"/><line x1="310" y1="10" x2="310" y2="410"/>
+    <line x1="10" y1="110" x2="410" y2="110"/><line x1="10" y1="310" x2="410" y2="310"/>
+  </g>
+  <!-- Layer 1 and border -->
+  <g stroke="#666" stroke-width="2.5">
+    <line x1="210" y1="10" x2="210" y2="410"/><line x1="10" y1="210" x2="410" y2="210"/>
+  </g>
+  <rect x="10" y="10" width="400" height="400" fill="none" stroke="#666" stroke-width="2.5"/>
+
+  <!-- Memory order -->
+  <polyline fill="none" stroke="#27ae60" stroke-width="1.5" stroke-opacity="0.8" points="35,35 35,85 85,35 85,85 35,135 35,185 85,135 85,185 135,35 135,85 185,35 185,85 135,135 135,185 185,135 185,185 35,235 35,285 85,235 85,285 35,335 35,385 85,335 85,385 135,235 135,285 185,235 185,285 135,335 135,385 185,335 185,385 235,35 235,85 285,35 285,85 235,135 235,185 285,135 285,185 335,35 335,85 385,35 385,85 335,135 335,185 385,135 385,185 235,235 235,285 285,235 285,285 235,335 235,385 285,335 285,385 335,235 335,285 385,235 385,285 335,335 335,385 385,335 385,385"/>
+
+  <!-- Relative indices -->
+  <g fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">
+    <text x="35" y="39">0</text><text x="35" y="89">1</text><text x="85" y="39">2</text><text x="85" y="89">3</text>
+    <text x="35" y="139">4</text><text x="35" y="189">5</text><text x="85" y="139">6</text><text x="85" y="189">7</text>
+    <text x="135" y="39">8</text><text x="135" y="89">9</text><text x="185" y="39">10</text><text x="185" y="89">11</text>
+    <text x="135" y="139">12</text><text x="135" y="189">13</text><text x="185" y="139">14</text><text x="185" y="189">15</text>
+    <text x="35" y="239">16</text><text x="35" y="289">17</text><text x="85" y="239">18</text><text x="85" y="289">19</text>
+    <text x="35" y="339">20</text><text x="35" y="389">21</text><text x="85" y="339">22</text><text x="85" y="389">23</text>
+    <text x="135" y="239">24</text><text x="135" y="289">25</text><text x="185" y="239">26</text><text x="185" y="289">27</text>
+    <text x="135" y="339">28</text><text x="135" y="389">29</text><text x="185" y="339">30</text><text x="185" y="389">31</text>
+    <text x="235" y="39">32</text><text x="235" y="89">33</text><text x="285" y="39">34</text><text x="285" y="89">35</text>
+    <text x="235" y="139">36</text><text x="235" y="189">37</text><text x="285" y="139">38</text><text x="285" y="189">39</text>
+    <text x="335" y="39">40</text><text x="335" y="89">41</text><text x="385" y="39">42</text><text x="385" y="89">43</text>
+    <text x="335" y="139">44</text><text x="335" y="189">45</text><text x="385" y="139">46</text><text x="385" y="189">47</text>
+    <text x="235" y="239">48</text><text x="235" y="289">49</text><text x="285" y="239">50</text><text x="285" y="289">51</text>
+    <text x="235" y="339">52</text><text x="235" y="389">53</text><text x="285" y="339">54</text><text x="285" y="389">55</text>
+    <text x="335" y="239">56</text><text x="335" y="289">57</text><text x="385" y="239">58</text><text x="385" y="289">59</text>
+    <text x="335" y="339">60</text><text x="335" y="389">61</text><text x="385" y="339">62</text><text x="385" y="389">63</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(440 30)" fill="#666">
+    <text y="0" font-weight="bold">Quadtree, layer 3 (8x8 cells)</text>
+    <text y="30">number: relative index i in the layer</text>
+    <text y="50">array offset: 21 + i</text>
+    <line x1="0" y1="72" x2="24" y2="72" stroke="#27ae60" stroke-width="1.5"/>
+    <text x="34" y="76">memory order, i = 0 ... 63</text>
+    <rect x="0" y="94" width="16" height="16" fill="#2e86c1" fill-opacity="0.3"/>
+    <rect x="18" y="94" width="16" height="16" fill="#e74c3c" fill-opacity="0.3"/>
+    <text x="44" y="107">4 siblings: i = 4k ... 4k+3</text>
+    <text y="132">same parent in layer 2, contiguous</text>
+    <text y="148">in memory (read together by the reduce)</text>
+    <text y="178">order inside a group of 4:</text>
+    <text y="196">0 top-left, 1 bottom-left,</text>
+    <text y="212">2 top-right, 3 bottom-right</text>
+    <text y="242">children of cell j of layer 2:</text>
+    <text y="260">layer 3 cells 4j ... 4j+3</text>
+  </g>
+</svg>

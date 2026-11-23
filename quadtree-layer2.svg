@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" font-family="sans-serif" font-size="12">
+  <!-- 2x2 sibling groups (same parent), checkerboard tint -->
+  <g fill="#2e86c1" fill-opacity="0.15">
+    <rect x="10" y="10" width="200" height="200"/><rect x="210" y="210" width="200" height="200"/>
+  </g>
+  <g fill="#e74c3c" fill-opacity="0.15">
+    <rect x="10" y="210" width="200" height="200"/><rect x="210" y="10" width="200" height="200"/>
+  </g>
+
+  <!-- Cell grid (4x4) -->
+  <g stroke="#666" stroke-width="1.2">
+    <line x1="110" y1="10" x2="110" y2="410"/><line x1="310" y1="10" x2="310" y2="410"/>
+    <line x1="10" y1="110" x2="410" y2="110"/><line x1="10" y1="310" x2="410" y2="310"/>
+  </g>
+  <!-- Parent cells (layer 1) and border -->
+  <g stroke="#666" stroke-width="2.5">
+    <line x1="210" y1="10" x2="210" y2="410"/><line x1="10" y1="210" x2="410" y2="210"/>
+  </g>
+  <rect x="10" y="10" width="400" height="400" fill="none" stroke="#666" stroke-width="2.5"/>
+
+  <!-- Memory order -->
+  <polyline fill="none" stroke="#27ae60" stroke-width="1.5" stroke-opacity="0.8" points="60,60 60,160 160,60 160,160 60,260 60,360 160,260 160,360 260,60 260,160 360,60 360,160 260,260 260,360 360,260 360,360"/>
+
+  <!-- Relative indices -->
+  <g fill="#444" text-anchor="middle" font-size="16" paint-order="stroke" stroke="#fff" stroke-width="3">
+    <text x="60" y="66">0</text><text x="60" y="166">1</text><text x="160" y="66">2</text><text x="160" y="166">3</text>
+    <text x="60" y="266">4</text><text x="60" y="366">5</text><text x="160" y="266">6</text><text x="160" y="366">7</text>
+    <text x="260" y="66">8</text><text x="260" y="166">9</text><text x="360" y="66">10</text><text x="360" y="166">11</text>
+    <text x="260" y="266">12</text><text x="260" y="366">13</text><text x="360" y="266">14</text><text x="360" y="366">15</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(440 30)" fill="#666">
+    <text y="0" font-weight="bold">Quadtree, layer 2 (4x4 cells)</text>
+    <text y="30">number: relative index i in the layer</text>
+    <text y="50">array offset: 5 + i</text>
+    <line x1="0" y1="72" x2="24" y2="72" stroke="#27ae60" stroke-width="1.5"/>
+    <text x="34" y="76">memory order, i = 0 ... 15</text>
+    <rect x="0" y="94" width="16" height="16" fill="#2e86c1" fill-opacity="0.3"/>
+    <rect x="18" y="94" width="16" height="16" fill="#e74c3c" fill-opacity="0.3"/>
+    <text x="44" y="107">4 siblings: i = 4k ... 4k+3</text>
+    <text y="132">same parent in layer 1, contiguous</text>
+    <text y="148">in memory (read together by the reduce)</text>
+    <text y="178">order inside a group of 4:</text>
+    <text y="196">0 top-left, 1 bottom-left,</text>
+    <text y="212">2 top-right, 3 bottom-right</text>
+    <text y="242">children of cell j of layer 1:</text>
+    <text y="260">layer 2 cells 4j ... 4j+3</text>
+  </g>
+</svg>

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" width="1000" height="500" font-family="sans-serif" font-size="12">
+  <!-- Edges -->
+  <g stroke="#999" stroke-width="1.5">
+    <line x1="365" y1="80" x2="140" y2="170"/><line x1="365" y1="80" x2="290" y2="170"/>
+    <line x1="365" y1="80" x2="440" y2="170"/><line x1="365" y1="80" x2="590" y2="170"/>
+    <line x1="140" y1="210" x2="55" y2="300"/><line x1="140" y1="210" x2="155" y2="300"/>
+    <line x1="140" y1="210" x2="255" y2="300"/><line x1="140" y1="210" x2="355" y2="300"/>
+  </g>
+
+  <!-- Level labels -->
+  <g fill="#999" font-size="11">
+    <text x="665" y="64">depth 0</text><text x="665" y="194">depth 1</text><text x="665" y="324">depth 2 (max depth)</text>
+  </g>
+
+  <!-- Opened nodes: s/d >= theta -->
+  <g fill="#2e86c1" fill-opacity="0.2" stroke="#2e86c1" stroke-width="1.5">
+    <rect x="320" y="40" width="90" height="40" rx="6"/>
+    <rect x="85" y="170" width="110" height="40" rx="6"/>
+  </g>
+  <!-- Returned nodes: s/d < theta or max depth -->
+  <g fill="#e74c3c" fill-opacity="0.2" stroke="#e74c3c" stroke-width="1.5">
+    <rect x="385" y="170" width="110" height="40" rx="6"/>
+    <rect x="535" y="170" width="110" height="40" rx="6"/>
+    <rect x="110" y="300" width="90" height="40" rx="6"/>
+    <rect x="310" y="300" width="90" height="40" rx="6"/>
+  </g>
+  <!-- Returned node containing the target mass -->
+  <rect x="10" y="300" width="90" height="40" rx="6" fill="#e74c3c" fill-opacity="0.2" stroke="#27ae60" stroke-width="3"/>
+  <!-- Skipped nodes: mass ~ 0 -->
+  <g fill="#999" fill-opacity="0.15" stroke="#999" stroke-width="1.5" stroke-dasharray="4 3">
+    <rect x="235" y="170" width="110" height="40" rx="6"/>
+    <rect x="210" y="300" width="90" height="40" rx="6"/>
+  </g>
+
+  <!-- Node labels -->
+  <g fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">
+    <text x="365" y="65">root</text>
+    <text x="140" y="195">c0</text><text x="290" y="195">c1</text><text x="440" y="195">c2</text><text x="590" y="195">c3</text>
+    <text x="55" y="325">c0.0</text><text x="155" y="325">c0.1</text><text x="255" y="325">c0.2</text><text x="355" y="325">c0.3</text>
+  </g>
+
+  <!-- Visit order -->
+  <g>
+    <circle cx="320" cy="40" r="10" fill="#666"/><circle cx="85" cy="170" r="10" fill="#666"/>
+    <circle cx="235" cy="170" r="10" fill="#666"/><circle cx="385" cy="170" r="10" fill="#666"/>
+    <circle cx="535" cy="170" r="10" fill="#666"/>
+    <circle cx="10" cy="300" r="10" fill="#666"/><circle cx="110" cy="300" r="10" fill="#666"/>
+    <circle cx="210" cy="300" r="10" fill="#666"/><circle cx="310" cy="300" r="10" fill="#666"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-size="11">
+    <text x="320" y="44">1</text><text x="85" y="174">2</text><text x="235" y="174">7</text>
+    <text x="385" y="174">8</text><text x="535" y="174">9</text>
+    <text x="10" y="304">3</text><text x="110" y="304">4</text><text x="210" y="304">5</text><text x="310" y="304">6</text>
+  </g>
+
+  <!-- Stack at step 3 -->
+  <g transform="translate(740 40)" fill="#666">
+    <text y="0" font-weight="bold">Stack when step 3 returns c0.0</text>
+    <g fill="none" stroke="#666" stroke-width="1.5">
+      <rect x="0" y="20" width="240" height="44"/><rect x="0" y="64" width="240" height="44"/><rect x="0" y="108" width="240" height="44"/>
+    </g>
+    <rect x="0" y="20" width="240" height="44" fill="#27ae60" fill-opacity="0.15"/>
+    <text x="12" y="47">depth 2: next 1</text>
+    <text x="12" y="91">depth 1: next 1</text>
+    <text x="12" y="135">depth 0: next 1</text>
+    <text x="205" y="47" font-size="11">top</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(10 410)" fill="#666">
+    <rect x="0" y="0" width="16" height="16" fill="#2e86c1" fill-opacity="0.2" stroke="#2e86c1" stroke-width="1.5"/>
+    <text x="24" y="13">opened: s/d &#8805; &#952;, its 4 children are pushed</text>
+    <rect x="330" y="0" width="16" height="16" fill="#e74c3c" fill-opacity="0.2" stroke="#e74c3c" stroke-width="1.5"/>
+    <text x="354" y="13">returned: s/d &lt; &#952;</text>
+    <rect x="620" y="0" width="16" height="16" fill="#999" fill-opacity="0.15" stroke="#999" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="644" y="13">skipped: mass &#8776; 0</text>
+    <rect x="0" y="30" width="16" height="16" fill="#e74c3c" fill-opacity="0.2" stroke="#27ae60" stroke-width="3"/>
+    <text x="24" y="43">returned cell containing m</text>
+    <circle cx="338" cy="38" r="8" fill="#666"/><text x="338" y="42" fill="#fff" text-anchor="middle" font-size="10">n</text>
+    <text x="354" y="43">order of inspection</text>
+  </g>
+</svg>

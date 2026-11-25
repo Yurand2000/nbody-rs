@@ -3,6 +3,7 @@ name = "nbody-rs"
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"
+default-run = "nbody-rs"
 
 [dependencies]
 bevy = { version = "0.19.1", default-features = false, features = ["dev", "2d", "ui"]}
@@ -10,6 +11,13 @@ nalgebra = "0.35.0"
 ordered-float = "5.3.0"
 rand = "0.10.2"
 smol = "2.0.2"
+clap = { version = "4", features = ["derive"] }
+libtux = { git = "https://github.com/Yurand2000/libtux", default-features = false, features = [ "clock", "time" ] }
+
+[[bin]]
+name = "bench"
+path = "src/bin/bench.rs"
+required-features = ["cuda"]
 
 [profile.dev]
 opt-level = 1

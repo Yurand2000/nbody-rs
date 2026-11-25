@@ -115,7 +115,7 @@ pub fn create_new_scene_menu(
                             BackgroundColor(WINDOW_COLOR_LIGHT),
                             children![
                                 (make_list_button(Text::new("Two Bodies")), SceneToLoad::TwoBodies),
-                                (make_list_button(Text::new("Grid")), SceneToLoad::Grid),
+                                (make_list_button(Text::new("Grid")), SceneToLoad::Grid(30)),
                                 (make_list_button(Text::new("Orbit")), SceneToLoad::Orbit),
                             ],
                         ),

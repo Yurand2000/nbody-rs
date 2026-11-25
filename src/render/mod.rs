@@ -94,7 +94,7 @@ pub struct MyAssetData {
     force_material: Handle<ColorMaterial>,
 }
 
-fn simulator_setup(
+pub fn simulator_setup(
     mut commands: Commands,
 ) {
     let (backend, frontend) = sim::async_simulator::new_async_simulator();
@@ -106,7 +106,7 @@ fn simulator_setup(
     commands.insert_resource(frontend);
 }
 
-fn render_setup(
+pub fn render_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,

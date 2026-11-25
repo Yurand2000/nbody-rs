@@ -301,6 +301,7 @@ fn two_body_orbit_scenario(
 }
 
 fn grid_scenario(
+    grid_length: isize,
     mut commands: Commands,
     render_data: Res<MyAssetData>,
     mut nbody: ResMut<sim::async_simulator::AsyncSimulatorFrontend>,
@@ -328,8 +329,8 @@ fn grid_scenario(
     //     }
     // }
 
-    for x in -30..30 {
-        for y in -30..30 {
+    for x in -grid_length..grid_length {
+        for y in -grid_length..grid_length {
             let mass = 1.0;
             let x = x as f32 * 10.0;
             let y = y as f32 * 10.0;
@@ -358,7 +359,7 @@ pub fn setup_scene(
 
     match load_data.scene {
         SceneToLoad::TwoBodies => { two_body_orbit_scenario(commands.reborrow(), render_data, nbody); },
-        SceneToLoad::Grid => { grid_scenario(commands.reborrow(), render_data, nbody); },
+        SceneToLoad::Grid(length) => { grid_scenario(length as isize, commands.reborrow(), render_data, nbody); },
         SceneToLoad::Orbit => { orbit_scenario(commands.reborrow(), render_data, nbody); },
     }
 

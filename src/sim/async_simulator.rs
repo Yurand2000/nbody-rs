@@ -129,6 +129,61 @@ impl AsyncSimulatorBackendBuilder {
 }
 
 impl AsyncSimulatorBackend {
+    pub async fn bench_run(&mut self, iterations: usize) {
+        use ResetData::*;
+
+        type Clock = libtux::clock::MonotonicClock;
+
+        // Setup
+        println!("init");
+        match self.comms.init.lock().await.take().unwrap() {
+            Uninit =>
+                self.simulator.reinit_empty(),
+            UpSimulator(params) =>
+                self.simulator.init_up(params),
+            CUDASimulator(params, cuda_params) =>
+                self.simulator.init_cuda(params, cuda_params),
+        };
+
+        println!("reset");
+        self.simulator.reset();
+        while let Ok(body) = self.new_bodies.try_recv() {
+            self.simulator.insert_body(body);
+        }
+
+        // Force a step to push memory into the simulator, insert_body is lazy.
+        self.simulator.step();
+
+        // Iterations
+        let mut times = Vec::with_capacity(iterations);
+        for _ in 0..iterations {
+            let start = Clock::now();
+
+            self.simulator.step();
+
+            let end = Clock::now();
+            times.push(end - start);
+        }
+
+        println!("--- OUTPUT ---");
+        println!("Step,Time ns");
+        for (i, time) in times.into_iter().enumerate() {
+            println!("{i},{:.0}", time.as_nanos());
+        }
+        println!("--- OUTPUT ---");
+
+        // Copy updates to local
+        self.simulator.pull_updates();
+
+        // Push updates to frontend
+        for (id, body) in self.simulator.get_bodies().iter().enumerate() {
+            self.body_updates.send((id, body.clone())).await.unwrap();
+        }
+
+        // Cleanup
+        self.simulator.reset();
+    }
+
     pub async fn run(&mut self) {
         const PAUSED_DELTA: std::time::Duration =
             std::time::Duration::from_nanos(1_000_000_000 / 10);

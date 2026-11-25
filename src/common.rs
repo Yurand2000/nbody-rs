@@ -26,7 +26,7 @@ pub struct LoadingData {
 pub enum SceneToLoad {
     #[default]
     TwoBodies,
-    Grid,
+    Grid(usize),
     Orbit,
 }
 

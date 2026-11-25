@@ -84,7 +84,7 @@ and $ \Delta t $ is the step size of the integration.
 
 ### Barnes-Hut Approximation
 
-The Barnes-Hut simulation is approximation algorithm for *n*-body simulations. While the classic algorithm as stated above needs to compute forces between each possible pair of masses, in complexity terms it has a order $ O(n^2) $, this approximation method reduces the number of mass-force pairs, trading off some simulation quality, ending in a $ O(n \log n) $ complexity.
+The Barnes-Hut simulation is approximation algorithm for *n*-body simulations. While the classic algorithm as stated above needs to compute forces between each possible pair of masses, in complexity terms it has a order $ O(n^2) $, this approximation method reduces the number of mass-force pairs, trading off some simulation quality, ending in a average $ O(n \log n) $ complexity (it is still $ O(n^2) $ in the worst case).
 
 To achieve such speedup the approximation divides the simulation volume into cells via a quadtree (two-dimensional space), so that only particles from nearby cells need to be treated individually, while particles from distant cells are treated as a single large particle centered at a cell's center of mass (COM).
 
@@ -161,6 +161,28 @@ The author of this project was not satisfied with the implementations aforementi
 While there are many details irrelevant for the project itself, this implementation uses an asynchronous middleware which creates a separate thread in charge of the simulation, while the main process is in charge of creating a visualization. The simulator and renderer execute separately, so that a bottleneck in one does not directly stall the other: the renderer pulls updates from the simulation backend only when it refreshes the visualization.
 
 # Results
+
+While the complete application couples the simulation with a real-time visualization, the following experiments compare CPU vs CUDA performances without involving the rendering pipeline, removing possible interferences caused by the interactions of the two subsystems and the sharing of their resources.
+
+Measuring speedups of this *n*-body simulator is not a trivial task, because computing times not only depend on the size of the input but also on the values. The trivial approach without a quadtree always performs $ \Theta(n^2) $ body interactions and $ \Theta(n) $ velocity and position updates. The Barnes-Hut approximation instead only gives an average-case $ O(n \log n) $ cost in the number of body interactions, which also strongly depends on the parameter $ \theta $.
+
+This means that simply increasing the number of particles in the system may result in either a linearithmic or a quadratic increase in computation times. In practice, as the following results show, ........
+
+The following experiment simulates a system of increasing number of bodies distributed in a grid pattern, computing the average iteration runtime over 1000 iterations on a CPU simulation or CUDA simulation with different parameters. The $ \Delta t $ parameter is set to $ 0.01 $ and the $ \theta $ parameter is set to 0.5
+
+> EXPERIMENT DATA
+
+The following plot instead shows the average iteration runtime over 1000 iterations when fixing the number of bodies of the grid pattern to ....., the $ \Delta t $ parameter at $ 0.01 $, while varying the $ \theta $ parameter in the set $ \{ 0, 0.25, 0.5, 0.75, 1, 1.25 \} $
+
+> EXPERIMENT DATA
+
+Finally, the following plot simulates 1000 steps of a grid scenario with ... bodies and the orbit scenario with .... bodies, fixing $ \Delta t $ to $ 0.01 $ and $ \theta $ to 0.5, displaying the time it took for each iteration to compute.
+
+> EXPERIMENT DATA
+
+While the experiments just shown only focus on the steps, never pulling updates from the GPU to the CPU (necessary only for CUDA), the following graph displays the extra time it is needed to copy simulation updates from the accelerator over to the central memory, varying the input size.
+
+> EXPERIMENT DATA
 
 ---
 

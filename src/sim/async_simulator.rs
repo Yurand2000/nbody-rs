@@ -20,6 +20,10 @@ pub struct AsyncSimulatorFrontend {
     body_updates: Receiver<(BodyId, Body)>,
     param_updates: Sender<SimulationParams>,
     comms: AsyncSimulatorComms,
+
+    debug_quadtree_updater: Receiver<Option<QuadTree<QuadTreeCell>>>,
+    debug_forces_updater: Receiver<Option<Vec<Vec2f>>>,
+    debug_single_forces_updater: Receiver<Option<Vec<SingleBodyForce>>>,
 }
 
 pub struct AsyncSimulatorBackend {
@@ -29,6 +33,10 @@ pub struct AsyncSimulatorBackend {
     param_updates: Receiver<SimulationParams>,
     comms: AsyncSimulatorComms,
     diagnostics: SimulatorDiagnostics,
+
+    debug_quadtree_updater: Sender<Option<QuadTree<QuadTreeCell>>>,
+    debug_forces_updater: Sender<Option<Vec<Vec2f>>>,
+    debug_single_forces_updater: Sender<Option<Vec<SingleBodyForce>>>,
 }
 
 #[derive(Clone)]
@@ -40,6 +48,10 @@ pub struct AsyncSimulatorComms {
     push_updates_from_simulator: Arc<Mutex<bool>>,
     updates_semaphore: Arc<Semaphore>,
     updates_per_second: Arc<Mutex<f64>>,
+
+    debug_quadtree_update: Arc<Mutex<bool>>,
+    debug_forces_update: Arc<Mutex<bool>>,
+    debug_single_forces_update: Arc<Mutex<Option<BodyId>>>,
 }
 
 enum ResetData {
@@ -61,11 +73,18 @@ pub fn new_async_simulator() -> (AsyncSimulatorBackendBuilder, AsyncSimulatorFro
     let (body_updates_send, body_updates_recv) = smol::channel::unbounded();
     let (param_updates_send, param_updates_recv) = smol::channel::unbounded();
 
+    let (quadtree_send, quadtree_recv) = smol::channel::unbounded();
+    let (forces_send, forces_recv) = smol::channel::unbounded();
+    let (single_f_send, single_f_recv) = smol::channel::unbounded();
+
     let backend = AsyncSimulatorBackendBuilder {
         new_bodies: new_bodies_recv,
         body_updates: body_updates_send,
         param_updates: param_updates_recv,
         comms: comms.clone(),
+        debug_quadtree_updater: quadtree_send,
+        debug_forces_updater: forces_send,
+        debug_single_forces_updater: single_f_send,
     };
 
     let frontend = AsyncSimulatorFrontend {
@@ -75,6 +94,9 @@ pub fn new_async_simulator() -> (AsyncSimulatorBackendBuilder, AsyncSimulatorFro
         body_updates: body_updates_recv,
         param_updates: param_updates_send,
         comms,
+        debug_quadtree_updater: quadtree_recv,
+        debug_forces_updater: forces_recv,
+        debug_single_forces_updater: single_f_recv,
     };
 
     (backend, frontend)
@@ -84,6 +106,9 @@ pub struct AsyncSimulatorBackendBuilder {
     new_bodies: Receiver<Body>,
     body_updates: Sender<(BodyId, Body)>,
     param_updates: Receiver<SimulationParams>,
+    debug_quadtree_updater: Sender<Option<QuadTree<QuadTreeCell>>>,
+    debug_forces_updater: Sender<Option<Vec<Vec2f>>>,
+    debug_single_forces_updater: Sender<Option<Vec<SingleBodyForce>>>,
     comms: AsyncSimulatorComms,
 }
 
@@ -96,6 +121,9 @@ impl AsyncSimulatorBackendBuilder {
             param_updates: self.param_updates,
             comms: self.comms,
             diagnostics: SimulatorDiagnostics::new(),
+            debug_quadtree_updater: self.debug_quadtree_updater,
+            debug_forces_updater: self.debug_forces_updater,
+            debug_single_forces_updater: self.debug_single_forces_updater,
         }
     }
 }
@@ -160,6 +188,30 @@ impl AsyncSimulatorBackend {
                 // rate limit at 1000 updates per second.
                 smol::Timer::at(last_instant + DELTA).await;
             } else {
+                let mut quadtree = self.comms.debug_quadtree_update.lock().await;
+                if *quadtree {
+                    *quadtree = false;
+
+                    let quadtree = self.simulator.get_quadtree();
+                    self.debug_quadtree_updater.send(quadtree).await.unwrap();
+                }
+
+                let mut forces = self.comms.debug_forces_update.lock().await;
+                if *forces {
+                    *forces = false;
+
+                    let forces = self.simulator.get_forces();
+                    self.debug_forces_updater.send(forces).await.unwrap();
+                }
+
+                let mut single_force = self.comms.debug_single_forces_update.lock().await;
+                if let Some(id) = *single_force {
+                    *single_force = None;
+
+                    let forces = self.simulator.get_body_forces(id);
+                    self.debug_single_forces_updater.send(forces).await.unwrap();
+                }
+
                 smol::Timer::at(last_instant + PAUSED_DELTA).await;
             }
 
@@ -265,11 +317,20 @@ impl Simulator for AsyncSimulatorFrontend {
 }
 
 impl SimulatorExt for AsyncSimulatorFrontend {
-    fn get_quadtree(&self) -> Option<QuadTree<QuadTreeCell>> { None }
+    fn get_quadtree(&self) -> Option<QuadTree<QuadTreeCell>> {
+        *smol::block_on(self.comms.debug_quadtree_update.lock()) = true;
+        smol::block_on(self.debug_quadtree_updater.recv()).unwrap()
+    }
 
-    fn get_forces(&self, _quadtree: &QuadTree<QuadTreeCell>) -> Option<Vec<Vec2f>> { None }
+    fn get_forces(&self) -> Option<Vec<Vec2f>> {
+        *smol::block_on(self.comms.debug_forces_update.lock()) = true;
+        smol::block_on(self.debug_forces_updater.recv()).unwrap()
+    }
 
-    fn get_body_forces(&self, _quadtree: &QuadTree<QuadTreeCell>, _id: BodyId) -> Option<Vec<SingleBodyForce>> { None }
+    fn get_body_forces(&self, id: BodyId) -> Option<Vec<SingleBodyForce>> {
+        *smol::block_on(self.comms.debug_single_forces_update.lock()) = Some(id);
+        smol::block_on(self.debug_single_forces_updater.recv()).unwrap()
+    }
 }
 
 impl Drop for AsyncSimulatorFrontend {
@@ -288,6 +349,9 @@ impl AsyncSimulatorComms {
             push_updates_from_simulator: Arc::new(Mutex::new(false)),
             updates_semaphore: Arc::new(Semaphore::new(1)),
             updates_per_second: Arc::new(Mutex::new(0.0)),
+            debug_quadtree_update: Arc::new(Mutex::new(false)),
+            debug_forces_update: Arc::new(Mutex::new(false)),
+            debug_single_forces_update: Arc::new(Mutex::new(None)),
         }
     }
 }

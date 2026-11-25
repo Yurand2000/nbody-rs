@@ -35,6 +35,7 @@ pub trait Simulator {
     fn get_body(&self, id: BodyId) -> &Body;
 }
 
+#[derive(Clone)]
 pub struct SingleBodyForce {
     pub com: Vec2f,
     pub force: Vec2f,
@@ -42,8 +43,8 @@ pub struct SingleBodyForce {
 
 pub trait SimulatorExt {
     fn get_quadtree(&self) -> Option<QuadTree<QuadTreeCell>> { None }
-    fn get_forces(&self, _quadtree: &QuadTree<QuadTreeCell>) -> Option<Vec<Vec2f>> { None }
-    fn get_body_forces(&self, _quadtree: &QuadTree<QuadTreeCell>, _id: BodyId) -> Option<Vec<SingleBodyForce>> { None }
+    fn get_forces(&self) -> Option<Vec<Vec2f>> { None }
+    fn get_body_forces(&self, _id: BodyId) -> Option<Vec<SingleBodyForce>> { None }
 }
 
 pub enum MultiSimulator {
@@ -175,25 +176,25 @@ impl SimulatorExt for MultiSimulator {
         }
     }
 
-    fn get_forces(&self, quadtree: &QuadTree<QuadTreeCell>) -> Option<Vec<Vec2f>> {
+    fn get_forces(&self) -> Option<Vec<Vec2f>> {
         use MultiSimulator::*;
 
         match self {
             Uninit => unreachable!(),
-            UpSimulator(sim) => sim.get_forces(quadtree),
+            UpSimulator(sim) => sim.get_forces(),
             #[cfg(feature = "cuda")]
-            CUDASimulator(sim) => sim.get_forces(quadtree),
+            CUDASimulator(sim) => sim.get_forces(),
         }
     }
 
-    fn get_body_forces(&self, quadtree: &QuadTree<QuadTreeCell>, id: BodyId) -> Option<Vec<SingleBodyForce>> {
+    fn get_body_forces(&self, id: BodyId) -> Option<Vec<SingleBodyForce>> {
         use MultiSimulator::*;
 
         match self {
             Uninit => unreachable!(),
-            UpSimulator(sim) => sim.get_body_forces(quadtree, id),
+            UpSimulator(sim) => sim.get_body_forces(id),
             #[cfg(feature = "cuda")]
-            CUDASimulator(sim) => sim.get_body_forces(quadtree, id),
+            CUDASimulator(sim) => sim.get_body_forces(id),
         }
     }
 }

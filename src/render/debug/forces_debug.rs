@@ -15,8 +15,7 @@ pub fn setup_forces(
 ) {
     println!("Setup Forces Debug");
 
-    let Some(tree) = nbody.get_quadtree() else { return; };
-    let Some(forces) = nbody.get_forces(&tree) else { return; };
+    let Some(forces) = nbody.get_forces() else { return; };
 
     let segment = &render_data.segment_mesh;
     let mat = &render_data.force_material;

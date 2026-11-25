@@ -169,7 +169,7 @@ impl SimulatorExt for CUDASimulator {
         Some(tree)
     }
 
-    fn get_forces(&self, quadtree: &QuadTree<QuadTreeCell>) -> Option<Vec<Vec2f>> {
+    fn get_forces(&self) -> Option<Vec<Vec2f>> {
 
     let start = std::time::Instant::now();
 
@@ -201,5 +201,5 @@ impl SimulatorExt for CUDASimulator {
         Some(out_forces)
     }
 
-    fn get_body_forces(&self, quadtree: &QuadTree<QuadTreeCell>, id: BodyId) -> Option<Vec<SingleBodyForce>> { None }
+    fn get_body_forces(&self, id: BodyId) -> Option<Vec<SingleBodyForce>> { None }
 }

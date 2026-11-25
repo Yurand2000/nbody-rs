@@ -76,19 +76,23 @@ impl SimulatorExt for UpSimulator {
         Some(tree)
     }
 
-    fn get_forces(&self, quadtree: &QuadTree<QuadTreeCell>) -> Option<Vec<Vec2f>> {
+    fn get_forces(&self) -> Option<Vec<Vec2f>> {
+        let quadtree = self.get_quadtree()?;
+
         Some(
             self.bodies.iter()
                 .map(|body|
-                    Self::kick_force_iter(body, &self.params, quadtree)
+                    Self::kick_force_iter(body, &self.params, &quadtree)
                         .map(|SingleBodyForce { force, .. }| force).sum::<Vec2f>()
                 )
                 .collect::<Vec<_>>()
         )
     }
 
-    fn get_body_forces(&self, quadtree: &QuadTree<QuadTreeCell>, id: BodyId) -> Option<Vec<SingleBodyForce>> {
-        Some(Self::kick_force_iter(self.get_body(id), &self.params, quadtree).collect())
+    fn get_body_forces(&self, id: BodyId) -> Option<Vec<SingleBodyForce>> {
+        let quadtree = self.get_quadtree()?;
+
+        Some(Self::kick_force_iter(self.get_body(id), &self.params, &quadtree).collect())
     }
 }
 

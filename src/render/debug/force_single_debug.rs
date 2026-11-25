@@ -24,8 +24,6 @@ pub fn setup_force_single(
         curr_body: 0,
     });
 
-    let Some(tree) = nbody.get_quadtree() else { return; };
-
     let circle = &render_data.circle_mesh;
     let segment = &render_data.segment_mesh;
     let red = &render_data.red_material;
@@ -33,7 +31,7 @@ pub fn setup_force_single(
 
     nbody.pull_updates();
     for (body_id, body, forces) in nbody.get_bodies().iter().enumerate()
-        .map(|(body_id, body)| (body_id, body, nbody.get_body_forces(&tree, body_id)))
+        .map(|(body_id, body)| (body_id, body, nbody.get_body_forces(body_id)))
     {
         let Some(forces) = forces else { continue; };
 

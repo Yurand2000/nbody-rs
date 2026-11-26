@@ -49,12 +49,18 @@ fn main() {
         .insert_resource(args)
         .insert_resource(frontend)
         .insert_non_send(backend.build())
-        .add_systems(Startup, render::render_setup)
+        .add_systems(Startup, (render::render_setup, minimize_window))
         .add_systems(PostStartup, setup_scenario)
         .add_systems(OnEnter(common::SimulationState::Loading), render::scenes::setup_scene)
         .add_systems(Update, simulate.run_if( in_state(render::SimUpdateState::Running) ))
         .add_systems(OnExit(common::SimulationState::Simulation), render::scenes::destroy_scene)
         .run();
+}
+
+fn minimize_window(mut windows: Query<&mut Window>) {
+    for mut window in &mut windows {
+        window.set_minimized(true);
+    }
 }
 
 fn setup_scenario(
@@ -95,6 +101,7 @@ fn simulate(
     mut backend: NonSendMut<sim::async_simulator::AsyncSimulatorBackend>,
     mut next_state: ResMut<NextState<render::SimUpdateState>>,
     bodies: Query<(&mut Transform, &common::BodyId)>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     use nbody_rs::sim::Simulator as _;
 
@@ -111,6 +118,7 @@ fn simulate(
     }
 
     next_state.set(render::SimUpdateState::Paused);
+    exit.write(AppExit::Success);
 }
 
 impl FromStr for Scenario {

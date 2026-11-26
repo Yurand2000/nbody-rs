@@ -100,7 +100,7 @@ Once the quadtree is built, it is used in the computation of the forces acting o
 
 Let mass $ m_i $ be the mass considered for the force computation. The set of particle masses and quadtree nodes used in the interaction is determined by the quotient between the width $ s $ of a region and its distance $ d $ from body $ m_i $. If a node is sufficiently far away, i.e. its size-distance ratio $ s/d $ is smaller than a given threshold value $ \theta $, then the node's COM and mass-sum are considered as a whole. If the node is too close, the inner nodes are checked individually with the same size-over-distance approach, or, if the maximum depth of the tree is reached, their component masses are individually involved.
 
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" width="800" height="420" font-family="sans-serif" font-size="13"><g transform="translate(10 10)"><g fill="#e74c3c" fill-opacity="0.15"><rect x="0" y="0" width="200" height="200"/><rect x="200" y="0" width="200" height="200"/><rect x="200" y="200" width="200" height="200"/></g><rect x="0" y="200" width="200" height="200" fill="#2e86c1" fill-opacity="0.15"/><rect x="0" y="0" width="400" height="400" fill="none" stroke="#666" stroke-width="2"/><g stroke="#666" stroke-width="1.5"><line x1="200" y1="0" x2="200" y2="400"/><line x1="0" y1="200" x2="400" y2="200"/></g><g stroke="#666" stroke-width="1" stroke-dasharray="4 3"><line x1="100" y1="200" x2="100" y2="400"/><line x1="0" y1="300" x2="200" y2="300"/></g><g stroke="#e74c3c" stroke-width="1.5"><line x1="150" y1="250" x2="50" y2="50"/><line x1="150" y1="250" x2="340" y2="90"/><line x1="150" y1="250" x2="350" y2="350"/></g><g stroke="#2e86c1" stroke-width="1.5"><line x1="150" y1="250" x2="60" y2="260"/><line x1="150" y1="250" x2="90" y2="330"/><line x1="150" y1="250" x2="170" y2="340"/></g><g fill="#999"><circle cx="30" cy="30" r="3"/><circle cx="70" cy="70" r="3"/><circle cx="310" cy="50" r="3"/><circle cx="370" cy="130" r="3"/><circle cx="330" cy="330" r="3"/><circle cx="370" cy="370" r="3"/></g><g stroke="#e74c3c" stroke-width="3"><path d="M44 44 l12 12 M56 44 l-12 12"/><path d="M334 84 l12 12 M346 84 l-12 12"/><path d="M344 344 l12 12 M356 344 l-12 12"/></g><g fill="#2e86c1"><circle cx="60" cy="260" r="5"/><circle cx="90" cy="330" r="5"/><circle cx="170" cy="340" r="5"/></g><circle cx="150" cy="250" r="8" fill="#27ae60" stroke="#1e8449" stroke-width="2"/></g><g transform="translate(460 40)" fill="#666"><circle cx="8" cy="0" r="8" fill="#27ae60" stroke="#1e8449" stroke-width="2"/><text x="28" y="5">target mass m<tspan dy="4" font-size="10">i</tspan></text><rect x="0" y="40" width="16" height="16" fill="#e74c3c" fill-opacity="0.25" stroke="#e74c3c"/><text x="28" y="53">node with s/d &lt; &#952;</text><path d="M2 82 l12 12 M14 82 l-12 12" stroke="#e74c3c" stroke-width="3"/><text x="28" y="93">used as one mass at its COM</text><rect x="0" y="120" width="16" height="16" fill="#2e86c1" fill-opacity="0.25" stroke="#2e86c1"/><text x="28" y="133">node with s/d &#8805; &#952;: opened</text><circle cx="8" cy="168" r="5" fill="#2e86c1"/><text x="28" y="173">individual mass</text><text x="0" y="220">s: node width</text><text x="0" y="242">d: distance from the target to the node COM</text><text x="0" y="264">&#952; = 0.9</text></g></svg>
+<p align="center"><img src="report/images/quadtree-barnes-hut.svg" alt="Barnes-Hut force approximation: nodes with s/d below theta are used as a single mass at their center of mass."></p>
 
 ## Implementation Details
 
@@ -120,7 +120,7 @@ The CPU simulation code is a straightforward implementation of the Leapfrog and 
 
 The quadtree is built top-down by iterating over all bodies for each layer. Bodies that fall in the same cell at each layer are aggregated togheter. Internally, the quadtree is defined as a single contiguous array of cells containing all the layers appended one after the other. Given the position of a cell and its depth, it is always possible to find its siblings, its parents and its children positions in this array by simple mathematical computations:
 
-![Memory layout of layers 2 and 3 of the quadtree.](quadtree-layers.svg)
+<p align="center"><img src="report/images/quadtree-layers.svg" alt="Memory layout of layers 2 and 3 of the quadtree."></p>
 
 Each layer at depth $ d $ starts at $ \sum_{k=0}^{d-1} 4^k $ and is composed of $ 4^d $ cells. The four children of a given cell at index $ i $ are indices $ \{ 4i+1, 4i+2, 4i+3, 4i+4 \} $, while its parent is at index $ \lfloor (i-1)/4 \rfloor $. This layout is different from having all the cells aligned in rows and can potentially improve cache locality because cells that are checked together are close in memory.
 
@@ -128,7 +128,7 @@ Each layer at depth $ d $ starts at $ \sum_{k=0}^{d-1} 4^k $ and is composed of 
 
 Another interesting routine is the quadtree iteration: given the quadtree, the $ \theta $ parameter and the position of a mass $ m_i $, the iterator scans the tree structure and returns, one by one, the cells that are to be used by the routine that computes interaction forces. The total complexity of the single iteration per mass is $ O(\log n) $.
 
-![Quadtree iteration: depth-first visit with a stack of per-layer frames.](quadtree-iteration.svg)
+<p align="center"><img src="report/images/quadtree-iteration.svg" alt="Quadtree iteration: depth-first visit with a stack of per-layer frames."></p>
 
 The iteration is depth-first and keeps a stack of the next cells to visit. At each iteration step it is decided if the top cell of the stack must be visited as is, because it is further than the threshold distance, or if its 4 children are of interest. In the second case the children are pushed onto the stack and the recursive visit restarts.
 
@@ -144,7 +144,7 @@ The CUDA code is very similar in theory to that of the CPU simulator, but it has
 
 Quadtrees in the CUDA section have the same memory layout as in the CPU code, but their construction and access is optimized for the GPU code. Here, the quadtree is built bottom-up, aggregating first the masses at the layer with the smallest size and then building the layers one by one from the cell's children data.
 
-![Quadtree construction in CUDA: per-body accumulation, per-cell averaging and layer-by-layer reduction.](quadtree-build-cuda.svg)
+<p align="center"><img src="report/images/quadtree-build-cuda.svg" alt="Quadtree construction in CUDA: per-body accumulation, per-cell averaging and layer-by-layer reduction."></p>
 
 The last layer is built in parallel by splitting all the bodies evenly across all available threads. An atomic addition is necessary because each thread needs to access regions of memory which may have contention. The remainder of tree building is split in multiple parts: First, when $ 2^n $ threads are active, the layers from $ n $ to the maximum depth are subdivided equally amongst all $ n $ threads; Each thread is assigned a specific cell at layer depth $ n $ and its whole subtree and can compute it in isolation. Layers from $ n $ to $ 0 $ must be instead merged; Each cell at layer $ k $ is assigned to only one of the threads and the remainder $ 2^n - k $ threads stay idle. Each layer is additionally synchronized before starting reducing the next layer. This reduction procedure continues until the root is reached.
 
@@ -166,23 +166,21 @@ While the complete application couples the simulation with a real-time visualiza
 
 Measuring speedups of this *n*-body simulator is not a trivial task, because computing times not only depend on the size of the input but also on the values. The trivial approach without a quadtree always performs $ \Theta(n^2) $ body interactions and $ \Theta(n) $ velocity and position updates. The Barnes-Hut approximation instead only gives an average-case $ O(n \log n) $ cost in the number of body interactions, which also strongly depends on the parameter $ \theta $.
 
-This means that simply increasing the number of particles in the system may result in either a linearithmic or a quadratic increase in computation times. In practice, as the following results show, ........
+This means that simply increasing the number of particles in the system may result in either a linearithmic or a quadratic increase in computation times. In practice, as the following results show, the growth is much closer to linearithmic than to quadratic: on the CPU the iteration time per body increases from about 2.9 µs with 100 bodies to about 10.6 µs with 40000 bodies (3.7 times), while a quadratic cost would increase it by 400 times.
 
 The following experiment simulates a system of increasing number of bodies distributed in a grid pattern, computing the average iteration runtime over 1000 iterations on a CPU simulation or CUDA simulation with different parameters. The $ \Delta t $ parameter is set to $ 0.01 $ and the $ \theta $ parameter is set to 0.5
 
-> EXPERIMENT DATA
+<p align="center"><img src="report/images/plots/exp1_time_per_body.svg" alt="Mean iteration time per body vs number of bodies, CPU and CUDA configurations (blocks x threads)."></p>
 
-The following plot instead shows the average iteration runtime over 1000 iterations when fixing the number of bodies of the grid pattern to ....., the $ \Delta t $ parameter at $ 0.01 $, while varying the $ \theta $ parameter in the set $ \{ 0, 0.25, 0.5, 0.75, 1, 1.25 \} $
+<p align="center"><img src="report/images/plots/exp1_speedup.svg" alt="Speedup of the best CUDA configuration over the CPU."></p>
 
-> EXPERIMENT DATA
+The following plot instead shows the average iteration runtime over 50 iterations when fixing the number of bodies of the grid pattern to 3600, the $ \Delta t $ parameter at $ 0.01 $, while varying the $ \theta $ parameter in the set $ \{ 0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1, 1.125, 1.25 \} $
 
-Finally, the following plot simulates 1000 steps of a grid scenario with ... bodies and the orbit scenario with .... bodies, fixing $ \Delta t $ to $ 0.01 $ and $ \theta $ to 0.5, displaying the time it took for each iteration to compute.
+<p align="center"><img src="report/images/plots/exp2_theta.svg" alt="Mean iteration time per body vs theta."></p>
 
-> EXPERIMENT DATA
+Finally, the following plot simulates 1000 steps of a grid scenario with 10000 bodies and the orbit scenario with about 4000 bodies, fixing $ \Delta t $ to $ 0.01 $ and $ \theta $ to 0.5, displaying the time it took for each iteration to compute.
 
-While the experiments just shown only focus on the steps, never pulling updates from the GPU to the CPU (necessary only for CUDA), the following graph displays the extra time it is needed to copy simulation updates from the accelerator over to the central memory, varying the input size.
-
-> EXPERIMENT DATA
+<p align="center"><img src="report/images/plots/exp3_iterations.svg" alt="Time of each iteration for the grid and orbit scenarios."></p>
 
 ---
 

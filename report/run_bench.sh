@@ -13,13 +13,13 @@ DT=${DT:-0.01}
 CUDA_BLOCKS=${CUDA_BLOCKS:-"16 64 256 1024"}
 CUDA_THREADS=${CUDA_THREADS:-"16 64 256"}
 # grid:<length> spawns (2*length)^2 bodies:
-# 100, 196, 324, 576, 1024, 1764, 3136, 5476, 10000, 19600, 40000
-GRID_SIZES=${GRID_SIZES:-"5 7 9 12 16 21 28 37 50 70 100"}
+# 100, 196, 324, 576, 1024, 1764, 3136, 5476, 10000, 19600, 40000, 78400
+GRID_SIZES=${GRID_SIZES:-"5 7 9 12 16 21 28 37 50 70 100 140"}
 THETA_GRID=${THETA_GRID:-30}                 # length for the theta experiment (3600 bodies)
 THETAS=${THETAS:-"0 0.125 0.25 0.375 0.5 0.625 0.75 0.875 1 1.125 1.25"}
 STEPS_GRID=${STEPS_GRID:-50}                 # length for the grid scenario of experiment 3 (10000 bodies)
 CUDA_BLOCKS_THETA=${CUDA_BLOCKS_THETA:-"16 64 256"} # blocks used by the theta experiment
-BACKENDS_STEPS=${BACKENDS_STEPS:-"cpu cuda:16x256 cuda:64x256 cuda:256x256"}  # backends used by experiment 3
+BACKENDS_STEPS=${BACKENDS_STEPS:-"cuda:16x256 cuda:64x256 cuda:256x256 cpu"}  # backends used by experiment 3
 
 make_backends() {  # $1 = blocks list
     local out="" blocks threads
@@ -28,7 +28,7 @@ make_backends() {  # $1 = blocks list
             out="cuda:${blocks}x${threads} $out"  # prepend: largest config first
         done
     done
-    echo "cpu $out"
+    echo "${out}cpu"
 }
 BACKENDS=$(make_backends "$CUDA_BLOCKS")
 BACKENDS_THETA=$(make_backends "$CUDA_BLOCKS_THETA")

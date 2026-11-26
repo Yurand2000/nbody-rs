@@ -14,11 +14,9 @@ The goal of this project is to implement an n-body simulation in CUDA, comparing
 
 The n-body problem is the problem of predicting the motion of celestial objects interacting with each other gravitationally. Given the massive scales of the universe, the classical problem is simplified in the following form:
 
-> *Each particle in a system of a finite number of particles is subjected to a Newtonian gravitational attraction from all the other particles, and to no other forces. If the initial state of the system is given, how will the particles move? [^1]*
+> *Each particle in a system of a finite number of particles is subjected to a Newtonian gravitational attraction from all the other particles, and to no other forces. If the initial state of the system is given, how will the particles move?*
 
 While the two-body problem is solved exactly, the *n*-body problem, with $ n > 2 $, cannot be solved in general (except in specific cases) and must be solved numerically.
-
-[^1]: Rosenberg 1977
 
 ## Problem formulation
 
@@ -160,6 +158,8 @@ The author of this project was not satisfied with the implementations aforementi
 
 While there are many details irrelevant for the project itself, this implementation uses an asynchronous middleware which creates a separate thread in charge of the simulation, while the main process is in charge of creating a visualization. The simulator and renderer execute separately, so that a bottleneck in one does not directly stall the other: the renderer pulls updates from the simulation backend only when it refreshes the visualization.
 
+<div style="page-break-after: always;"></div>
+
 # Results
 
 While the complete application couples the simulation with a real-time visualization, the following experiments compare CPU vs CUDA performances without involving the rendering pipeline, removing possible interferences caused by the interactions of the two subsystems and the sharing of their resources.
@@ -171,6 +171,8 @@ This means that simply increasing the number of particles in the system may resu
 The following experiment simulates a system of increasing number of bodies distributed in a grid pattern, computing the average iteration runtime over 1000 iterations on a CPU simulation or CUDA simulation with different parameters. The $ \Delta t $ parameter is set to $ 0.01 $ and the $ \theta $ parameter is set to 0.5
 
 <p align="center"><img src="report/images/plots/exp1_time_per_body.svg" alt="Mean iteration time per body vs number of bodies, CPU and CUDA configurations (blocks x threads)."></p>
+
+This second picture also shows the speedup with the best possible CUDA configuration.
 
 <p align="center"><img src="report/images/plots/exp1_speedup.svg" alt="Speedup of the best CUDA configuration over the CPU."></p>
 
